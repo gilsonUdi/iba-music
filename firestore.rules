@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ───── Helpers ────────────────────────────────────────────────
+    function isAuth()   { return request.auth != null; }
+    function uid()      { return request.auth.uid; }
+    function userData() { return get(/databases/$(database)/documents/users/$(uid())).data; }
+
+    // Suporte a documentos antigos (role: string) e novos (roles: array)
+    function userRoles() {
+      let d = userData();
+      return d.get("roles", [d.get("role", "musico")]);
+    }
+
+    function isSuperAdmin() { return isAuth() && userRoles().hasAny(["super_admin"]); }
+    function isPastor()     { return isAuth() && userRoles().hasAny(["super_admin", "pastor"]); }
+    function isLiderEquipe(){ return isAuth() && userRoles().hasAny(["super_admin", "pastor", "lider_equipe"]); }
+    function isLiderCelula(){ return isAuth() && userRoles().hasAny(["super_admin", "pastor", "lider_celula"]); }
+    function isMembro()     { return isAuth(); }
+
+    // igrejaId do usuário autenticado
+    function myIgrejaId() { return userData().get("igrejaId", null); }
+
+    // Verifica se um documento existente pertence à mesma igreja do usuário.
+    // Super admin passa sempre. Documentos sem igrejaId passam (retrocompat.).
+    function sameIgreja(docData) {
+      let docIgreja = docData.get("igrejaId", null);
+      return isSuperAdmin() || docIgreja == null || docIgreja == myIgrejaId();
+    }
+
+    // Verifica se o documento que está sendo criado/escrito pertence à mesma
+    // igreja do usuário (usa request.resource.data em vez de resource.data).
+    function sameIgrejaNew() {
+      let docIgreja = request.resource.data.get("igrejaId", null);
+      return isSuperAdmin() || docIgreja == null || docIgreja == myIgrejaId();
+    }
+
+    // ───── Igrejas ────────────────────────────────────────────────
+    // Super admin gerencia igrejas; pastores podem ler (client filtra a deles)
+    match /igrejas/{igrejaId} {
+      allow read:              if isPastor();
+      allow create, update:    if isSuperAdmin();
+      allow delete:            if isSuperAdmin();
+    }
+
+    // ───── Users ──────────────────────────────────────────────────
+    match /users/{userId} {
+      // Qualquer membro pode ler usuários da própria igreja (ou o próprio perfil)
+      allow read:   if isMembro() && (sameIgreja(resource.data) || uid() == userId);
+      // Pastor cadastra membros; igrejaId do novo doc deve ser o mesmo do pastor
+      allow create: if isPastor() && sameIgrejaNew();
+      // Pastor atualiza membros da sua igreja; membro atualiza o próprio perfil
+      allow update: if (isPastor() && sameIgreja(resource.data)) || uid() == userId;
+      allow delete: if isPastor() && sameIgreja(resource.data);
+    }
+
+    // ───── Equipes ────────────────────────────────────────────────
+    match /equipes/{equipeId} {
+      allow read:           if isMembro() && sameIgreja(resource.data);
+      allow create:         if isLiderEquipe() && sameIgrejaNew();
+      allow update:         if isLiderEquipe() && sameIgreja(resource.data);
+      allow delete:         if isPastor() && sameIgreja(resource.data);
+    }
+
+    // ───── Escalas ────────────────────────────────────────────────
+    match /escalas/{escalaId} {
+      allow read:           if isMembro() && sameIgreja(resource.data);
+      allow create:         if isLiderEquipe() && sameIgrejaNew();
+      allow update, delete: if isLiderEquipe() && sameIgreja(resource.data);
+    }
+
+    // ───── Músicas ────────────────────────────────────────────────
+    match /musicas/{musicaId} {
+      allow read:                   if isMembro() && sameIgreja(resource.data);
+      allow create:                 if isLiderEquipe() && sameIgrejaNew();
+      allow update, delete:         if isLiderEquipe() && sameIgreja(resource.data);
+    }
+
+    // ───── Notificações ───────────────────────────────────────────
+    match /notificacoes/{notifId} {
+      allow read:   if isMembro() && sameIgreja(resource.data);
+      allow create: if (isLiderEquipe() || isLiderCelula()) && sameIgrejaNew();
+      allow update: if isMembro() && sameIgreja(resource.data); // marcar como lida
+      allow delete: if isPastor() && sameIgreja(resource.data);
+    }
+
+    // ───── Prestação — Perguntas ──────────────────────────────────
+    match /prestacao_perguntas/{perguntaId} {
+      allow read:                   if isMembro() && sameIgreja(resource.data);
+      allow create:                 if isPastor() && sameIgrejaNew();
+      allow update, delete:         if isPastor() && sameIgreja(resource.data);
+    }
+
+    // ───── Prestação — Respostas ──────────────────────────────────
+    // Leitura restrita: apenas o próprio músico, seu líder de célula e pastores
+    match /prestacao_respostas/{respostaId} {
+      allow read: if isMembro() && sameIgreja(resource.data) && (
+        uid() == resource.data.uid       // próprio músico
+        || uid() == resource.data.liderUid  // líder de célula
+        || isPastor()
+      );
+      allow create, update: if isMembro() && uid() == request.resource.data.uid;
+      allow delete:         if isPastor() && sameIgreja(resource.data);
+    }
+
+    // ───── Prestação — Controle mensal ────────────────────────────
+    match /prestacao_controle/{mes} {
+      allow read, create, update: if isMembro();
+      allow delete:               if isPastor();
+    }
+  }
+}

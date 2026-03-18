@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getPrestacaoPerguntas, getPrestacaoResposta, savePrestacaoResposta,
-  getPrestacaoControle, initPrestacaoControle, getAllMusicos,
 } from "@/lib/firestore";
 import type { PrestacaoPergunta, PrestacaoResposta } from "@/lib/types";
 import { format, parseISO } from "date-fns";
@@ -34,20 +33,12 @@ export default function PrestacaoPage() {
   useEffect(() => {
     if (!user || !user.roles?.includes("musico")) { setLoading(false); return; }
     async function load() {
-      const [perg, resp, musicos] = await Promise.all([
+      const [perg, resp] = await Promise.all([
         getPrestacaoPerguntas(),
         getPrestacaoResposta(user!.uid, mes),
-        getAllMusicos(),
       ]);
       setPerguntas(perg);
       setRespostaExistente(resp);
-
-      // Inicializar controle mensal
-      const controle = await getPrestacaoControle(mes);
-      if (!controle) {
-        await initPrestacaoControle(mes, musicos.length);
-      }
-
       setLoading(false);
     }
     load();

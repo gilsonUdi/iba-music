@@ -262,6 +262,16 @@ export async function savePrestacaoResposta(uid: string, mes: string, data: Omit
   await registrarRespostaNoControle(uid, mes);
 }
 
+export async function getMinhasRespostas(uid: string): Promise<PrestacaoResposta[]> {
+  const q = query(
+    collection(db, "prestacao_respostas"),
+    where("uid", "==", uid),
+    orderBy("mes", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ ...d.data(), id: d.id, enviadoEm: toDate(d.data().enviadoEm) } as PrestacaoResposta));
+}
+
 export async function getRespostasByLider(liderUid: string, mes: string): Promise<PrestacaoResposta[]> {
   const q = query(
     collection(db, "prestacao_respostas"),

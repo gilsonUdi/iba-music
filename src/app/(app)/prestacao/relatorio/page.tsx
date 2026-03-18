@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  getAllRespostasByMes, getRespostasByLider, getAllMusicos,
-  getMusicosByLider, getPrestacaoControle, initPrestacaoControle,
-  getPrestacaoPerguntas,
+  getRespostasByLider, getMusicosByLider, getPrestacaoControle,
+  initPrestacaoControle, getPrestacaoPerguntas,
 } from "@/lib/firestore";
 import type { AppUser, PrestacaoPergunta, PrestacaoResposta } from "@/lib/types";
 import { format, parseISO } from "date-fns";
@@ -28,13 +27,13 @@ export default function RelatorioPage() {
   const [totalMusicos, setTotalMusicos] = useState(0);
 
   useEffect(() => {
-    if (user && !user.roles?.includes("pastor") && !user.roles?.includes("lider_celula") && !user.roles?.includes("lider_equipe")) {
+    if (user && !user.roles?.includes("lider_celula")) {
       router.replace("/prestacao");
     }
   }, [user]);
 
   useEffect(() => {
-    if (!user || (!user.roles?.includes("pastor") && !user.roles?.includes("lider_celula") && !user.roles?.includes("lider_equipe"))) return;
+    if (!user || !user.roles?.includes("lider_celula")) return;
     load();
   }, [user, mesAtual]);
 
@@ -43,12 +42,8 @@ export default function RelatorioPage() {
     try {
       const [perg, resp, mus] = await Promise.all([
         getPrestacaoPerguntas(),
-        user!.roles?.includes("pastor")
-          ? getAllRespostasByMes(mesAtual)
-          : getRespostasByLider(user!.uid, mesAtual),
-        user!.roles?.includes("pastor")
-          ? getAllMusicos()
-          : getMusicosByLider(user!.uid),
+        getRespostasByLider(user!.uid, mesAtual),
+        getMusicosByLider(user!.uid),
       ]);
 
       setPerguntas(perg);
@@ -81,7 +76,7 @@ export default function RelatorioPage() {
     return format(d, "yyyy-MM");
   });
 
-  if (!user?.roles?.includes("pastor") && !user?.roles?.includes("lider_celula") && !user?.roles?.includes("lider_equipe")) return null;
+  if (!user?.roles?.includes("lider_celula")) return null;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getPrestacaoPerguntas, getPrestacaoResposta, savePrestacaoResposta,
+  getMinhasRespostas,
 } from "@/lib/firestore";
 import type { PrestacaoPergunta, PrestacaoResposta } from "@/lib/types";
+import { ChevronDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -25,6 +27,8 @@ export default function PrestacaoPage() {
 
   const [perguntas, setPerguntas] = useState<PrestacaoPergunta[]>([]);
   const [respostaExistente, setRespostaExistente] = useState<PrestacaoResposta | null>(null);
+  const [historico, setHistorico] = useState<PrestacaoResposta[]>([]);
+  const [expandedHist, setExpandedHist] = useState<string | null>(null);
   const [respostas, setRespostas] = useState<Record<string, string | number | string[]>>({});
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -33,12 +37,14 @@ export default function PrestacaoPage() {
   useEffect(() => {
     if (!user || !user.roles?.includes("musico")) { setLoading(false); return; }
     async function load() {
-      const [perg, resp] = await Promise.all([
+      const [perg, resp, hist] = await Promise.all([
         getPrestacaoPerguntas(),
         getPrestacaoResposta(user!.uid, mes),
+        getMinhasRespostas(user!.uid),
       ]);
       setPerguntas(perg);
       setRespostaExistente(resp);
+      setHistorico(hist);
       setLoading(false);
     }
     load();
@@ -136,8 +142,9 @@ export default function PrestacaoPage() {
 
   // Já respondeu
   if (respostaExistente) {
+    const historicoAnteriores = historico.filter(h => h.mes !== mes);
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto space-y-4">
         <div className="card p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 size={32} className="text-green-500" />
@@ -156,6 +163,53 @@ export default function PrestacaoPage() {
             </div>
           </div>
         </div>
+
+        {/* Histórico de meses anteriores */}
+        {historicoAnteriores.length > 0 && (
+          <div className="card overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-800 text-sm">Histórico de respostas</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Somente leitura — suas respostas anteriores</p>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {historicoAnteriores.map(h => {
+                const isOpen = expandedHist === h.mes;
+                const mesLabel = format(parseISO(`${h.mes}-01`), "MMMM 'de' yyyy", { locale: ptBR });
+                return (
+                  <div key={h.mes}>
+                    <button
+                      onClick={() => setExpandedHist(isOpen ? null : h.mes)}
+                      className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 capitalize">{mesLabel}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Enviado em {format(h.enviadoEm, "dd/MM/yyyy")}
+                        </p>
+                      </div>
+                      <ChevronDown size={16} className={clsx("text-gray-400 transition-transform", isOpen && "rotate-180")} />
+                    </button>
+                    {isOpen && (
+                      <div className="px-5 pb-5 bg-gray-50 border-t border-gray-100 space-y-4">
+                        {perguntas.map(p => {
+                          const valor = h.respostas[p.id];
+                          return (
+                            <div key={p.id}>
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{p.texto}</p>
+                              <p className="text-sm text-gray-800 bg-white rounded-xl px-4 py-3 border border-gray-100">
+                                {Array.isArray(valor) ? valor.join(", ") : String(valor ?? "—")}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

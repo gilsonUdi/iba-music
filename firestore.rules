@@ -100,9 +100,8 @@ service cloud.firestore {
       allow read: if isMembro() && (
         resource == null                     // doc ainda não existe (getDoc retorna vazio)
         || (sameIgreja(resource.data) && (
-          uid() == resource.data.uid         // próprio músico
-          || uid() == resource.data.liderUid // líder de célula
-          || isPastor()
+          uid() == resource.data.uid         // próprio músico (histórico pessoal)
+          || uid() == resource.data.liderUid // líder de célula vinculado ao membro
         ))
       );
       allow create, update: if isMembro() && uid() == request.resource.data.uid;

@@ -26,15 +26,17 @@ function getYouTubeId(url: string): string | null {
   return null;
 }
 
+/**
+ * Retorna URL de embed do OneDrive SOMENTE se o link já for um embed real
+ * (gerado via OneDrive → Compartilhar → Inserir). Links de compartilhamento
+ * normais (?cid=...&id=...) bloqueiam iframe via X-Frame-Options.
+ */
 function getOneDriveEmbedUrl(url: string): string | null {
   try {
     const u = new URL(url);
-    if (!u.hostname.includes("onedrive.live.com") && !u.hostname.includes("1drv.ms")) return null;
-    // Converte /?cid=...&id=... para /embed?cid=...&id=...
-    if (u.hostname.includes("onedrive.live.com")) {
-      return `https://onedrive.live.com/embed${u.search}`;
-    }
-    return url; // links curtos 1drv.ms tentamos direto
+    if (!u.hostname.includes("onedrive.live.com")) return null;
+    // Somente links com resid+authkey são embeds reais do OneDrive
+    if (u.searchParams.has("resid") && u.searchParams.has("authkey")) return url;
   } catch { /* invalid */ }
   return null;
 }
@@ -443,30 +445,51 @@ export default function RepertorioDetalhePage() {
                     ))}
                   </div>
                 )}
-                {/* Iframe embed */}
+                {/* Embed ou painel de acesso */}
                 {(() => {
                   const embedUrl = getOneDriveEmbedUrl(equipeVS.vsUrl!);
-                  return embedUrl ? (
-                    <>
-                      <iframe
-                        src={embedUrl}
-                        title={`VS · Playbacks — ${equipeVS.name}`}
-                        className="w-full rounded-2xl border border-gray-100"
-                        style={{ height: "70vh", minHeight: "400px" }}
-                        allow="fullscreen"
-                      />
-                      <a href={equipeVS.vsUrl!} target="_blank" rel="noopener"
-                        className="text-xs text-gray-400 hover:text-green-500 flex items-center gap-1 w-fit">
-                        <ExternalLink size={11} /> Abrir pasta de VS no OneDrive
+                  if (embedUrl) {
+                    return (
+                      <>
+                        <iframe
+                          src={embedUrl}
+                          title={`VS · Playbacks — ${equipeVS.name}`}
+                          className="w-full rounded-2xl border border-gray-100"
+                          style={{ height: "70vh", minHeight: "400px" }}
+                          allow="fullscreen"
+                        />
+                        <a href={equipeVS.vsUrl!} target="_blank" rel="noopener"
+                          className="text-xs text-gray-400 hover:text-green-500 flex items-center gap-1 w-fit">
+                          <ExternalLink size={11} /> Abrir no OneDrive
+                        </a>
+                      </>
+                    );
+                  }
+                  return (
+                    <div className="flex flex-col items-center justify-center py-10 gap-6 text-center px-4">
+                      <div className="w-20 h-20 bg-green-50 rounded-3xl flex items-center justify-center">
+                        <Headphones size={38} className="text-green-500" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-800 text-lg">VS · Playbacks</p>
+                        <p className="text-gray-400 text-sm mt-1">{equipeVS.name}</p>
+                        <p className="text-gray-400 text-xs mt-3 max-w-xs">
+                          Os arquivos de stems e playbacks estão hospedados no OneDrive.
+                          Clique para abrir a pasta diretamente.
+                        </p>
+                      </div>
+                      <a
+                        href={equipeVS.vsUrl!}
+                        target="_blank"
+                        rel="noopener"
+                        className="btn-primary flex items-center gap-2 px-6 py-3 text-base"
+                      >
+                        <Headphones size={18} /> Abrir pasta de VS
+                        <ExternalLink size={14} className="opacity-75" />
                       </a>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-                      <Headphones size={40} className="text-gray-300" />
-                      <p className="text-gray-500 text-sm">Este link não pode ser embutido. Abra diretamente:</p>
-                      <a href={equipeVS.vsUrl!} target="_blank" rel="noopener" className="btn-primary flex items-center gap-2">
-                        <ExternalLink size={14} /> Abrir VS no OneDrive
-                      </a>
+                      <p className="text-xs text-gray-300">
+                        O OneDrive não permite visualização incorporada em aplicativos externos.
+                      </p>
                     </div>
                   );
                 })()}

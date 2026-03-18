@@ -12,7 +12,7 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import {
-  Calendar, Plus, X, Trash2, CheckCircle2, XCircle, Clock,
+  Calendar, Plus, X, Trash2, CheckCircle2, XCircle, Clock, Pencil,
   ChevronDown, ChevronUp, Music2, ListMusic, Users2, Search, ChevronRight,
 } from "lucide-react";
 import clsx from "clsx";
@@ -159,6 +159,11 @@ export default function EscalasPage() {
   const [selectedSetlist, setSelectedSetlist] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Edição de setlist de escala existente
+  const [editingSetlistId, setEditingSetlistId] = useState<string | null>(null);
+  const [editSetlist, setEditSetlist] = useState<string[]>([]);
+  const [savingSetlist, setSavingSetlist] = useState(false);
+
   async function load() {
     setLoading(true);
     const [esc, eq, musicas] = await Promise.all([getEscalas(user?.igrejaId), getEquipes(user?.igrejaId), getMusicas(user?.igrejaId)]);
@@ -261,6 +266,24 @@ export default function EscalasPage() {
     await deleteEscala(id);
     toast.success("Escala excluída");
     await load();
+  }
+
+  function openEditSetlist(escala: Escala) {
+    setEditingSetlistId(escala.id);
+    setEditSetlist(escala.setlist ?? []);
+  }
+
+  async function saveSetlist() {
+    if (!editingSetlistId) return;
+    setSavingSetlist(true);
+    try {
+      await updateEscala(editingSetlistId, { setlist: editSetlist });
+      toast.success("Setlist atualizado!");
+      setEditingSetlistId(null);
+      await load();
+    } finally {
+      setSavingSetlist(false);
+    }
   }
 
   function toggleMusico(u: AppUser) {
@@ -393,12 +416,50 @@ export default function EscalasPage() {
                       <p className="text-sm text-gray-600 italic border-l-2 border-primary-200 pl-3">{escala.observacoes}</p>
                     )}
 
-                    {/* Setlist — clicável */}
-                    {setlistMusicas.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    {/* Setlist */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
                           <ListMusic size={13} /> Setlist
+                          {setlistMusicas.length > 0 && (
+                            <span className="text-gray-300 font-normal normal-case">({setlistMusicas.length})</span>
+                          )}
                         </p>
+                        {canEdit && editingSetlistId !== escala.id && (
+                          <button
+                            onClick={() => openEditSetlist(escala)}
+                            className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary-50 transition-colors"
+                          >
+                            <Pencil size={11} /> Editar setlist
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Modo edição de setlist */}
+                      {editingSetlistId === escala.id ? (
+                        <div className="space-y-2">
+                          <SetlistDropdown
+                            musicas={todasMusicas}
+                            selected={editSetlist}
+                            onChange={setEditSetlist}
+                          />
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={() => setEditingSetlistId(null)}
+                              className="btn-secondary text-sm flex-1"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={saveSetlist}
+                              disabled={savingSetlist}
+                              className="btn-primary text-sm flex-1"
+                            >
+                              {savingSetlist ? "Salvando..." : "Salvar setlist"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : setlistMusicas.length > 0 ? (
                         <div className="space-y-1.5">
                           {setlistMusicas.map((m, idx) => (
                             <button
@@ -422,8 +483,10 @@ export default function EscalasPage() {
                             </button>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">Nenhuma música no setlist ainda.</p>
+                      )}
+                    </div>
 
                     {/* Músicos */}
                     <div>

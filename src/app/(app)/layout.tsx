@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "@/lib/auth";
 import {
   Music2, LayoutDashboard, Users, Calendar, Library,
-  Bell, ClipboardCheck, LogOut, Users2, Building2,
+  Bell, ClipboardCheck, LogOut, Users2, Building2, ChevronUp,
 } from "lucide-react";
 import { useState } from "react";
 import { primaryRoleLabel } from "@/lib/types";
@@ -47,7 +47,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     user.roles.some(r => (item.roles as readonly string[]).includes(r))
   );
 
-  // Mobile: mostra os 4 primeiros + "Mais" se tiver mais de 4
   const mobileMain = visibleItems.slice(0, 4);
   const mobileMore = visibleItems.slice(4);
   const hasMore = mobileMore.length > 0;
@@ -60,22 +59,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
+
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex flex-col w-60 bg-white border-r border-gray-100 shrink-0">
-        <div className="flex flex-col h-full p-4">
+      <aside className="hidden md:flex flex-col w-64 shrink-0"
+        style={{ background: "linear-gradient(160deg, #12082e 0%, #1e0a4a 60%, #180d3a 100%)" }}>
+        <div className="flex flex-col h-full px-4 py-6">
+
           {/* Logo */}
-          <div className="flex items-center gap-3 px-2 mb-8">
-            <div className="w-9 h-9 bg-primary-500 rounded-xl flex items-center justify-center">
-              <Music2 size={18} className="text-white" />
+          <div className="flex items-center gap-3 px-3 mb-8">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}>
+              <Music2 size={20} className="text-white" />
             </div>
             <div>
-              <p className="font-bold text-gray-900 text-sm leading-none">IBA</p>
-              <p className="text-xs text-gray-400 mt-0.5">Music</p>
+              <p className="font-extrabold text-white text-base leading-none tracking-tight">IBA Music</p>
+              <p className="text-xs mt-0.5" style={{ color: "rgba(196,181,253,0.7)" }}>
+                {primaryRoleLabel(user.roles)}
+              </p>
             </div>
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 space-y-1">
+          <nav className="flex-1 space-y-0.5">
             {visibleItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + "/");
               return (
@@ -83,36 +88,51 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   key={href}
                   href={href}
                   className={clsx(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                     active
-                      ? "bg-primary-500 text-white shadow-sm"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                      ? "text-white shadow-lg"
+                      : "text-purple-200/70 hover:text-white hover:bg-white/8"
                   )}
+                  style={active ? {
+                    background: "linear-gradient(135deg, rgba(124,58,237,0.5), rgba(139,92,246,0.3))",
+                    boxShadow: "0 2px 12px rgba(124,58,237,0.3)",
+                    borderLeft: "3px solid #a78bfa",
+                  } : undefined}
                 >
-                  <Icon size={18} />
-                  <span className="flex-1">{label}</span>
+                  <Icon size={18} className={active ? "text-violet-300" : ""} />
+                  <span>{label}</span>
+                  {active && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-violet-400" />
+                  )}
                 </Link>
               );
             })}
           </nav>
 
           {/* User */}
-          <div className="border-t border-gray-100 pt-4 mt-4">
-            <div className="flex items-center gap-3 px-3 mb-3">
-              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                <span className="text-primary-700 font-semibold text-sm">{user.name[0]}</span>
+          <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="flex items-center gap-3 px-3 py-3 rounded-xl mb-1"
+              style={{ background: "rgba(255,255,255,0.06)" }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm text-white"
+                style={{ background: "linear-gradient(135deg, #7c3aed, #c026d3)" }}>
+                {user.name[0]}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-                <p className="text-xs text-gray-400">{primaryRoleLabel(user.roles)}</p>
+                <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+                <p className="text-xs truncate" style={{ color: "rgba(196,181,253,0.6)" }}>
+                  {user.email}
+                </p>
               </div>
             </div>
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+              style={{ color: "rgba(252,165,165,0.8)" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.15)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
               <LogOut size={16} />
-              Sair
+              Sair da conta
             </button>
           </div>
         </div>
@@ -120,45 +140,51 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main Content ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+
         {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-primary-500 rounded-lg flex items-center justify-center">
-              <Music2 size={14} className="text-white" />
+        <header className="md:hidden flex items-center justify-between px-4 py-3 shrink-0"
+          style={{ background: "linear-gradient(135deg, #12082e, #1e0a4a)" }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}>
+              <Music2 size={15} className="text-white" />
             </div>
-            <span className="font-bold text-gray-900 text-sm">IBA Music</span>
+            <span className="font-extrabold text-white text-sm tracking-tight">IBA Music</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-700 font-semibold text-xs">{user.name[0]}</span>
-            </div>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #c026d3)" }}>
+            {user.name[0]}
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-28 md:pb-6">
           {children}
         </main>
 
         {/* ── Mobile Bottom Navigation ── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-40 safe-area-inset-bottom">
-          <div className="flex items-center justify-around px-2 py-1">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white z-40"
+          style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.10)", borderTop: "1px solid rgba(124,58,237,0.08)" }}>
+          <div className="flex items-center justify-around px-1 pt-2 pb-3">
             {mobileMain.map(({ href, shortLabel, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + "/");
               return (
                 <Link
                   key={href}
                   href={href}
-                  className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-0"
+                  className="flex flex-col items-center gap-1 min-w-0 flex-1"
                 >
                   <div className={clsx(
-                    "w-10 h-7 flex items-center justify-center rounded-xl transition-all",
-                    active ? "bg-primary-500" : "bg-transparent"
-                  )}>
+                    "w-12 h-8 flex items-center justify-center rounded-2xl transition-all duration-200",
+                  )}
+                    style={active ? {
+                      background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                      boxShadow: "0 2px 10px rgba(124,58,237,0.4)",
+                    } : undefined}>
                     <Icon size={18} className={active ? "text-white" : "text-gray-400"} />
                   </div>
                   <span className={clsx(
-                    "text-[10px] font-medium truncate max-w-[52px]",
+                    "text-[10px] font-semibold truncate max-w-[56px] text-center",
                     active ? "text-primary-600" : "text-gray-400"
                   )}>
                     {shortLabel}
@@ -167,27 +193,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               );
             })}
 
-            {/* Botão "Mais" */}
             {hasMore && (
               <button
                 onClick={() => setMoreOpen(true)}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-0"
+                className="flex flex-col items-center gap-1 min-w-0 flex-1"
               >
                 <div className={clsx(
-                  "w-10 h-7 flex items-center justify-center rounded-xl transition-all",
-                  mobileMore.some(i => pathname === i.href || pathname.startsWith(i.href + "/"))
-                    ? "bg-primary-500" : "bg-transparent"
-                )}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                    className={mobileMore.some(i => pathname === i.href || pathname.startsWith(i.href + "/"))
-                      ? "text-white" : "text-gray-400"}>
-                    <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
-                    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
-                    <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
-                  </svg>
+                  "w-12 h-8 flex items-center justify-center rounded-2xl transition-all duration-200",
+                )}
+                  style={mobileMore.some(i => pathname === i.href || pathname.startsWith(i.href + "/")) ? {
+                    background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                    boxShadow: "0 2px 10px rgba(124,58,237,0.4)",
+                  } : undefined}>
+                  <ChevronUp size={18} className={
+                    mobileMore.some(i => pathname === i.href || pathname.startsWith(i.href + "/"))
+                      ? "text-white" : "text-gray-400"
+                  } />
                 </div>
                 <span className={clsx(
-                  "text-[10px] font-medium",
+                  "text-[10px] font-semibold",
                   mobileMore.some(i => pathname === i.href || pathname.startsWith(i.href + "/"))
                     ? "text-primary-600" : "text-gray-400"
                 )}>
@@ -201,13 +225,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* More Sheet */}
         {moreOpen && (
           <div className="md:hidden fixed inset-0 z-50" onClick={() => setMoreOpen(false)}>
-            <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <div
-              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 pb-10 shadow-2xl"
+              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-5 pb-10"
+              style={{ boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}
               onClick={e => e.stopPropagation()}
             >
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6" />
-              <div className="space-y-1">
+
+              {/* Header do sheet */}
+              <div className="flex items-center gap-3 px-2 mb-4">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #c026d3)" }}>
+                  {user.name[0]}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{user.name}</p>
+                  <p className="text-xs text-gray-400">{primaryRoleLabel(user.roles)}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1 mb-3">
                 {mobileMore.map(({ href, label, icon: Icon }) => {
                   const active = pathname === href || pathname.startsWith(href + "/");
                   return (
@@ -216,33 +254,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       href={href}
                       onClick={() => setMoreOpen(false)}
                       className={clsx(
-                        "flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all",
-                        active ? "bg-primary-500 text-white" : "text-gray-700 hover:bg-gray-50"
+                        "flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all",
+                        active ? "text-white" : "text-gray-700 hover:bg-gray-50"
                       )}
+                      style={active ? {
+                        background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                        boxShadow: "0 4px 14px rgba(124,58,237,0.35)",
+                      } : undefined}
                     >
-                      <Icon size={20} />
+                      <Icon size={20} className={active ? "text-white" : "text-gray-400"} />
                       {label}
                     </Link>
                   );
                 })}
-                <div className="border-t border-gray-100 mt-3 pt-3">
-                  <div className="flex items-center gap-3 px-4 py-2 mb-2">
-                    <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
-                      <span className="text-primary-700 font-semibold">{user.name[0]}</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-400">{primaryRoleLabel(user.roles)}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-500 hover:bg-red-50 rounded-2xl transition-colors"
-                  >
-                    <LogOut size={18} />
-                    Sair
-                  </button>
-                </div>
+              </div>
+
+              <div style={{ borderTop: "1px solid #f3f4f6" }} className="pt-3">
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-2xl transition-colors"
+                >
+                  <LogOut size={18} />
+                  Sair da conta
+                </button>
               </div>
             </div>
           </div>

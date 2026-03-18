@@ -5,8 +5,9 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "@/lib/auth";
+import Image from "next/image";
 import {
-  Music2, LayoutDashboard, Users, Calendar, Library,
+  LayoutDashboard, Users, Calendar, Library,
   Bell, ClipboardCheck, LogOut, Users2, Building2, ChevronUp,
 } from "lucide-react";
 import { useState } from "react";
@@ -67,9 +68,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Logo */}
           <div className="flex items-center gap-3 px-3 mb-8">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}>
-              <Music2 size={20} className="text-white" />
+            <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+              <Image src="/logo.png" alt="IBA Music" width={40} height={40} className="object-cover w-full h-full" />
             </div>
             <div>
               <p className="font-extrabold text-white text-base leading-none tracking-tight">IBA Music</p>
@@ -145,9 +145,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="md:hidden flex items-center justify-between px-4 py-3 shrink-0"
           style={{ background: "linear-gradient(135deg, #12082e, #1e0a4a)" }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}>
-              <Music2 size={15} className="text-white" />
+            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
+              <Image src="/logo.png" alt="IBA Music" width={32} height={32} className="object-cover w-full h-full" />
             </div>
             <span className="font-extrabold text-white text-sm tracking-tight">IBA Music</span>
           </div>

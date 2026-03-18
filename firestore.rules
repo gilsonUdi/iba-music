@@ -26,7 +26,9 @@ service cloud.firestore {
     // Super admin passa sempre. Documentos sem igrejaId passam (retrocompat.).
     function sameIgreja(docData) {
       let docIgreja = docData.get("igrejaId", null);
-      return isSuperAdmin() || docIgreja == null || docIgreja == myIgrejaId();
+      let myIgreja  = myIgrejaId();
+      // Passa se: super_admin, doc sem igrejaId, usuário sem igrejaId (legado), ou mesma igreja
+      return isSuperAdmin() || docIgreja == null || myIgreja == null || docIgreja == myIgreja;
     }
 
     // Verifica se o documento que está sendo criado/escrito pertence à mesma

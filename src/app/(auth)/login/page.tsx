@@ -6,7 +6,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "@/lib/auth";
-import { Music2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 
 const schema = z.object({
@@ -39,8 +40,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur rounded-2xl mb-4">
-            <Music2 size={32} className="text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 mb-4">
+            <Image src="/logo.png" alt="IBA Music" width={80} height={80} className="rounded-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold text-white">IBA Music</h1>
           <p className="text-indigo-200 mt-1">Faça login para continuar</p>

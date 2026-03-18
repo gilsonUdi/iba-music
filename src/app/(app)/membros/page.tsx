@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { getAllUsers, updateUser } from "@/lib/firestore";
+import { getAllUsers, updateUser, getEquipes, updateEquipe } from "@/lib/firestore";
+import type { Equipe } from "@/lib/types";
 import { registerUser } from "@/lib/auth";
 import {
   INSTRUMENTO_LABELS, ROLE_LABELS, primaryRoleLabel,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/types";
 import { toast } from "sonner";
 import {
-  Users, Plus, Search, Pencil, ToggleLeft, ToggleRight, X, Mail, Phone, UserCheck, Star,
+  Users, Users2, Plus, Search, Pencil, ToggleLeft, ToggleRight, X, Mail, Phone, UserCheck, Star,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -44,6 +45,7 @@ const EMPTY: FormData = {
 export default function MembrosPage() {
   const { user } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [minhaEquipe, setMinhaEquipe] = useState<Equipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -54,8 +56,16 @@ export default function MembrosPage() {
 
   async function loadUsers() {
     setLoading(true);
-    const data = await getAllUsers(user?.igrejaId);
+    const [data, equipes] = await Promise.all([
+      getAllUsers(user?.igrejaId),
+      getEquipes(user?.igrejaId),
+    ]);
     setUsers(data);
+    // Líder de equipe: descobre qual equipe ele lidera
+    if (user?.roles?.includes("lider_equipe") && !user?.roles?.includes("pastor")) {
+      const eq = equipes.find(e => e.liderId === user.uid) ?? null;
+      setMinhaEquipe(eq);
+    }
     setLoading(false);
   }
 
@@ -133,7 +143,14 @@ export default function MembrosPage() {
         toast.success("Membro atualizado!");
       } else {
         if (!form.password || form.password.length < 6) { toast.error("Senha obrigatória (mínimo 6 caracteres)"); setSaving(false); return; }
-        await registerUser(form.email, form.password, form.name, form.roles, form.liderUid || undefined, user?.igrejaId, extras);
+        const newUser = await registerUser(form.email, form.password, form.name, form.roles, form.liderUid || undefined, user?.igrejaId, extras);
+        // Lider de equipe: adiciona automaticamente à sua equipe
+        if (minhaEquipe && !user?.roles?.includes("pastor")) {
+          await updateEquipe(minhaEquipe.id, {
+            membros: [...minhaEquipe.membros, newUser.uid],
+          });
+          setMinhaEquipe(prev => prev ? { ...prev, membros: [...prev.membros, newUser.uid] } : prev);
+        }
         toast.success("Membro cadastrado!");
       }
       setShowModal(false);
@@ -154,21 +171,26 @@ export default function MembrosPage() {
     await loadUsers();
   }
 
+  const isPastor = user?.roles?.includes("pastor");
+  const isLiderEquipe = user?.roles?.includes("lider_equipe") && !user?.roles?.includes("pastor");
+  const canManage = isPastor || isLiderEquipe;
+  const isOnlyMusico = !isPastor && !isLiderEquipe && !user?.roles?.includes("lider_celula");
+
+  // Lider de equipe vê apenas os membros da sua equipe
+  const usersVisiveis = isLiderEquipe && minhaEquipe
+    ? users.filter(u => minhaEquipe.membros.includes(u.uid) || u.uid === user?.uid)
+    : users;
+
   // Líder de Célula disponíveis para associar ao músico
   const lideresCelula = users.filter(u => u.roles.includes("lider_celula"));
 
-  const filtered = users.filter(u => {
+  const filtered = usersVisiveis.filter(u => {
     const matchSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase());
     const matchRole = filterRole === "todos" || u.roles.includes(filterRole as UserRole);
     return matchSearch && matchRole;
   });
-
-  const isPastor = user?.roles?.includes("pastor");
-  const isLiderEquipe = user?.roles?.includes("lider_equipe");
-  const canManage = isPastor || isLiderEquipe;
-  const isOnlyMusico = !isPastor && !isLiderEquipe && !user?.roles?.includes("lider_celula");
 
   if (isOnlyMusico) {
     return (
@@ -193,7 +215,12 @@ export default function MembrosPage() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Users size={24} className="text-primary-500" /> Membros
           </h1>
-          <p className="text-gray-500 mt-1">{users.filter(u => u.ativo).length} membros ativos</p>
+          <p className="text-gray-500 mt-1">
+            {usersVisiveis.filter(u => u.ativo).length} membros ativos
+            {isLiderEquipe && minhaEquipe && (
+              <span className="ml-2 text-xs text-primary-500">· {minhaEquipe.name}</span>
+            )}
+          </p>
         </div>
         {canManage && (
           <button onClick={openNew} className="btn-primary flex items-center gap-2">
@@ -340,6 +367,13 @@ export default function MembrosPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Aviso lider de equipe */}
+              {isLiderEquipe && minhaEquipe && !editingUser && (
+                <div className="bg-primary-50 border border-primary-100 rounded-2xl px-4 py-3 text-sm text-primary-700 flex items-center gap-2">
+                  <Users2 size={15} className="shrink-0" />
+                  Este membro será adicionado automaticamente à <strong>{minhaEquipe.name}</strong>
+                </div>
+              )}
               {/* Nome */}
               <div>
                 <label className="label">Nome completo</label>

@@ -15,14 +15,14 @@ import { toast } from "sonner";
 import clsx from "clsx";
 
 const NAV_ITEMS = [
-  { href: "/igrejas",    label: "Igrejas",      shortLabel: "Igrejas",   icon: Building2,       roles: ["super_admin"] },
-  { href: "/dashboard",  label: "Dashboard",    shortLabel: "Início",    icon: LayoutDashboard, roles: ["super_admin", "pastor", "lider_equipe", "lider_celula", "musico"] },
-  { href: "/membros",    label: "Membros",      shortLabel: "Membros",   icon: Users,           roles: ["super_admin", "pastor", "lider_equipe"] },
-  { href: "/equipes",    label: "Equipes",      shortLabel: "Equipes",   icon: Users2,          roles: ["super_admin", "pastor", "lider_equipe"] },
-  { href: "/escalas",    label: "Escalas",      shortLabel: "Escalas",   icon: Calendar,        roles: ["super_admin", "pastor", "lider_equipe", "lider_celula", "musico"] },
-  { href: "/repertorio", label: "Repertório",   shortLabel: "Repertório",icon: Library,         roles: ["super_admin", "pastor", "lider_equipe", "lider_celula", "musico"] },
-  { href: "/notificacoes",label: "Notificações",shortLabel: "Avisos",    icon: Bell,            roles: ["super_admin", "pastor", "lider_equipe", "lider_celula", "musico"] },
-  { href: "/prestacao",  label: "Prestação de Contas", shortLabel: "Prestação", icon: ClipboardCheck, roles: ["super_admin", "pastor", "lider_equipe", "lider_celula", "musico"] },
+  { href: "/igrejas",     label: "Igrejas",             shortLabel: "Igrejas",    icon: Building2,       roles: ["super_admin"] },
+  { href: "/dashboard",   label: "Dashboard",           shortLabel: "Início",     icon: LayoutDashboard, roles: ["super_admin", "pastor", "lider_equipe", "lider_celula", "musico"] },
+  { href: "/membros",     label: "Membros",             shortLabel: "Membros",    icon: Users,           roles: ["pastor", "lider_equipe"] },
+  { href: "/equipes",     label: "Equipes",             shortLabel: "Equipes",    icon: Users2,          roles: ["pastor", "lider_equipe"] },
+  { href: "/escalas",     label: "Escalas",             shortLabel: "Escalas",    icon: Calendar,        roles: ["pastor", "lider_equipe", "lider_celula", "musico"] },
+  { href: "/repertorio",  label: "Repertório",          shortLabel: "Repertório", icon: Library,         roles: ["pastor", "lider_equipe", "lider_celula", "musico"] },
+  { href: "/notificacoes",label: "Notificações",        shortLabel: "Avisos",     icon: Bell,            roles: ["pastor", "lider_equipe", "lider_celula", "musico"] },
+  { href: "/prestacao",   label: "Prestação de Contas", shortLabel: "Prestação",  icon: ClipboardCheck,  roles: ["pastor", "lider_equipe", "lider_celula", "musico"] },
 ] as const;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

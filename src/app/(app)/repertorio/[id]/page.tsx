@@ -8,7 +8,7 @@ import type { Musica, TomMusical, Equipe } from "@/lib/types";
 import { toast } from "sonner";
 import {
   ArrowLeft, Youtube, FileText, Music2, ExternalLink,
-  Pencil, Trash2, X, Save, Clock, Tag, Headphones,
+  Pencil, Trash2, X, Save, Clock, Tag, Headphones, Search,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -363,6 +363,23 @@ export default function RepertorioDetalhePage() {
                     ))}
                   </div>
                 )}
+                {/* Barra de busca — copia o nome da música para Ctrl+F */}
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-2.5">
+                  <Search size={14} className="text-amber-500 shrink-0" />
+                  <span className="text-sm text-amber-700 flex-1 truncate">
+                    Buscar: <strong>{musica.titulo}</strong>
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(musica.titulo);
+                      toast.success(`"${musica.titulo}" copiado! Use Ctrl+F no documento.`);
+                    }}
+                    className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1 rounded-xl transition-colors font-medium shrink-0"
+                  >
+                    Copiar nome
+                  </button>
+                </div>
+
                 {/* Iframe ou link externo */}
                 {cifraEmbedUrl ? (
                   <>

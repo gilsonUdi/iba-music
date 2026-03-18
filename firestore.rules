@@ -95,10 +95,13 @@ service cloud.firestore {
     // ───── Prestação — Respostas ──────────────────────────────────
     // Leitura restrita: apenas o próprio músico, seu líder de célula e pastores
     match /prestacao_respostas/{respostaId} {
-      allow read: if isMembro() && sameIgreja(resource.data) && (
-        uid() == resource.data.uid       // próprio músico
-        || uid() == resource.data.liderUid  // líder de célula
-        || isPastor()
+      allow read: if isMembro() && (
+        resource == null                     // doc ainda não existe (getDoc retorna vazio)
+        || (sameIgreja(resource.data) && (
+          uid() == resource.data.uid         // próprio músico
+          || uid() == resource.data.liderUid // líder de célula
+          || isPastor()
+        ))
       );
       allow create, update: if isMembro() && uid() == request.resource.data.uid;
       allow delete:         if isPastor() && sameIgreja(resource.data);

@@ -10,7 +10,7 @@ import {
 } from "@/lib/types";
 import { toast } from "sonner";
 import {
-  Users, Plus, Search, Pencil, ToggleLeft, ToggleRight, X, Mail, Phone, UserCheck,
+  Users, Plus, Search, Pencil, ToggleLeft, ToggleRight, X, Mail, Phone, UserCheck, Star,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -29,7 +29,8 @@ interface FormData {
   email: string;
   password: string;
   roles: UserRole[];
-  instrumento: string;
+  instrumentos: Instrumento[];
+  instrumentoPrincipal: Instrumento | "";
   liderUid: string;
   telefone: string;
 }
@@ -37,7 +38,7 @@ interface FormData {
 const EMPTY: FormData = {
   name: "", email: "", password: "",
   roles: ["musico"],
-  instrumento: "", liderUid: "", telefone: "",
+  instrumentos: [], instrumentoPrincipal: "", liderUid: "", telefone: "",
 };
 
 export default function MembrosPage() {
@@ -68,16 +69,32 @@ export default function MembrosPage() {
 
   function openEdit(u: AppUser) {
     setEditingUser(u);
+    const instrs = u.instrumentos?.length
+      ? u.instrumentos
+      : u.instrumento ? [u.instrumento] : [];
     setForm({
       name: u.name,
       email: u.email,
       password: "",
       roles: u.roles,
-      instrumento: u.instrumento ?? "",
+      instrumentos: instrs,
+      instrumentoPrincipal: u.instrumentoPrincipal ?? u.instrumento ?? "",
       liderUid: u.liderUid ?? "",
       telefone: u.telefone ?? "",
     });
     setShowModal(true);
+  }
+
+  function toggleInstrumento(instr: Instrumento) {
+    setForm(f => {
+      const has = f.instrumentos.includes(instr);
+      const novos = has ? f.instrumentos.filter(i => i !== instr) : [...f.instrumentos, instr];
+      // se removeu o principal, limpa
+      const principal = has && f.instrumentoPrincipal === instr ? "" : f.instrumentoPrincipal;
+      // se só tem um, define como principal automaticamente
+      const autoP = novos.length === 1 ? novos[0] : principal;
+      return { ...f, instrumentos: novos, instrumentoPrincipal: autoP };
+    });
   }
 
   function toggleRole(role: UserRole) {
@@ -99,18 +116,24 @@ export default function MembrosPage() {
 
     setSaving(true);
     try {
+      const principal = (form.instrumentoPrincipal || form.instrumentos[0]) as Instrumento | undefined;
+      const extras = {
+        instrumento: principal,
+        instrumentos: form.instrumentos.length > 0 ? form.instrumentos : undefined,
+        instrumentoPrincipal: principal,
+        telefone: form.telefone || undefined,
+      };
       if (editingUser) {
         await updateUser(editingUser.uid, {
           name: form.name,
           roles: form.roles,
-          instrumento: form.instrumento ? (form.instrumento as Instrumento) : undefined,
           liderUid: form.liderUid || undefined,
-          telefone: form.telefone || undefined,
+          ...extras,
         });
         toast.success("Membro atualizado!");
       } else {
         if (!form.password || form.password.length < 6) { toast.error("Senha obrigatória (mínimo 6 caracteres)"); setSaving(false); return; }
-        await registerUser(form.email, form.password, form.name, form.roles, form.liderUid || undefined, user?.igrejaId);
+        await registerUser(form.email, form.password, form.name, form.roles, form.liderUid || undefined, user?.igrejaId, extras);
         toast.success("Membro cadastrado!");
       }
       setShowModal(false);
@@ -250,7 +273,15 @@ export default function MembrosPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {u.instrumento ? INSTRUMENTO_LABELS[u.instrumento] : "—"}
+                        {u.instrumentos?.length ? (
+                          <div className="flex flex-wrap gap-1">
+                            {u.instrumentos.map(i => (
+                              <span key={i} className={clsx("badge text-xs", i === (u.instrumentoPrincipal ?? u.instrumento) ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500")}>
+                                {INSTRUMENTO_LABELS[i]}
+                              </span>
+                            ))}
+                          </div>
+                        ) : u.instrumento ? INSTRUMENTO_LABELS[u.instrumento] : "—"}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {lider ? (
@@ -385,20 +416,46 @@ export default function MembrosPage() {
                 </div>
               </div>
 
-              {/* Instrumento (se músico) */}
+              {/* Instrumentos (se músico) */}
               {showsInstrumento && (
                 <div>
-                  <label className="label">Instrumento</label>
-                  <select
-                    value={form.instrumento}
-                    onChange={e => setForm(f => ({ ...f, instrumento: e.target.value }))}
-                    className="input"
-                  >
-                    <option value="">Selecione...</option>
-                    {Object.entries(INSTRUMENTO_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
+                  <label className="label">Instrumentos</label>
+                  <p className="text-xs text-gray-400 mb-2">Selecione todos que toca. Clique em ★ para definir o principal.</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(Object.entries(INSTRUMENTO_LABELS) as [Instrumento, string][]).map(([v, l]) => {
+                      const sel = form.instrumentos.includes(v);
+                      const isPrincipal = form.instrumentoPrincipal === v;
+                      return (
+                        <div
+                          key={v}
+                          className={clsx(
+                            "flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all select-none",
+                            sel ? "border-primary-300 bg-primary-50" : "border-gray-100 bg-gray-50 hover:border-gray-200"
+                          )}
+                          onClick={() => toggleInstrumento(v)}
+                        >
+                          <input type="checkbox" readOnly checked={sel} className="accent-primary-500 w-4 h-4 pointer-events-none" />
+                          <span className="text-sm text-gray-700 flex-1">{l}</span>
+                          {sel && (
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, instrumentoPrincipal: v })); }}
+                              title="Definir como principal"
+                              className={clsx("transition-colors", isPrincipal ? "text-amber-500" : "text-gray-300 hover:text-amber-400")}
+                            >
+                              <Star size={13} fill={isPrincipal ? "currentColor" : "none"} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {form.instrumentos.length > 1 && !form.instrumentoPrincipal && (
+                    <p className="text-xs text-amber-600 mt-1.5">Clique em ★ para definir o instrumento principal</p>
+                  )}
+                  {form.instrumentoPrincipal && (
+                    <p className="text-xs text-primary-600 mt-1.5">Principal: {INSTRUMENTO_LABELS[form.instrumentoPrincipal as Instrumento]}</p>
+                  )}
                 </div>
               )}
 

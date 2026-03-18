@@ -33,13 +33,21 @@ export async function signOut() {
  * Solução: usar inMemoryPersistence na instância secundária para que ela nunca
  * grave no localStorage, preservando a sessão do admin intacta.
  */
+export interface RegisterExtras {
+  instrumento?: import("./types").Instrumento;
+  instrumentos?: import("./types").Instrumento[];
+  instrumentoPrincipal?: import("./types").Instrumento;
+  telefone?: string;
+}
+
 export async function registerUser(
   email: string,
   password: string,
   name: string,
   roles: UserRole[],
   liderUid?: string,
-  igrejaId?: string
+  igrejaId?: string,
+  extras?: RegisterExtras
 ): Promise<User> {
   // Instância secundária com nome único para não conflitar
   const secondaryApp = initializeApp(firebaseConfig, `reg_${Date.now()}`);
@@ -51,7 +59,7 @@ export async function registerUser(
 
   try {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    await createUser(cred.user.uid, { email, name, roles, liderUid, igrejaId });
+    await createUser(cred.user.uid, { email, name, roles, liderUid, igrejaId, ...extras });
     return cred.user;
   } finally {
     // Destrói a instância secundária — sessão principal continua intacta

@@ -68,7 +68,9 @@ export interface AppUser {
   name: string;
   roles: UserRole[];         // array — um usuário pode ter múltiplos papéis
   igrejaId?: string;         // undefined apenas para super_admin
-  instrumento?: Instrumento;
+  instrumento?: Instrumento;            // mantido para retrocompat
+  instrumentos?: Instrumento[];         // lista completa de instrumentos
+  instrumentoPrincipal?: Instrumento;   // instrumento principal (exibição / escalas)
   liderUid?: string;         // UID do líder de célula (para músicos)
   telefone?: string;
   ativo: boolean;

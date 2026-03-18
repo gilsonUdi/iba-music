@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getEscalas, createEscala, updateEscala, deleteEscala, getEquipes, getMusicas } from "@/lib/firestore";
 import {
   CULTO_LABELS, INSTRUMENTO_LABELS,
-  type Escala, type AppUser, type TipoCulto, type Musica, type Equipe,
+  type Escala, type AppUser, type TipoCulto, type Musica, type Equipe, type Instrumento,
 } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -225,7 +225,7 @@ export default function EscalasPage() {
       const membros = selectedMusicos.map(m => ({
         uid: m.uid,
         name: m.name,
-        instrumento: m.instrumento!,
+        instrumento: (m.instrumentoPrincipal ?? m.instrumento ?? "outro") as Instrumento,
         confirmado: null as null,
       }));
       await createEscala({

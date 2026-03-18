@@ -26,6 +26,19 @@ function getYouTubeId(url: string): string | null {
   return null;
 }
 
+function getOneDriveEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes("onedrive.live.com") && !u.hostname.includes("1drv.ms")) return null;
+    // Converte /?cid=...&id=... para /embed?cid=...&id=...
+    if (u.hostname.includes("onedrive.live.com")) {
+      return `https://onedrive.live.com/embed${u.search}`;
+    }
+    return url; // links curtos 1drv.ms tentamos direto
+  } catch { /* invalid */ }
+  return null;
+}
+
 function getGoogleDocsEmbedUrl(url: string): string | null {
   try {
     const u = new URL(url);
@@ -410,26 +423,10 @@ export default function RepertorioDetalhePage() {
           {/* VS / Playbacks */}
           {aba === "vs" && (
             temVS && equipeVS ? (
-              <div className="flex flex-col items-center justify-center py-14 gap-4 text-center px-6">
-                <div className="w-16 h-16 bg-green-50 rounded-3xl flex items-center justify-center">
-                  <Headphones size={30} className="text-green-500" />
-                </div>
-                <div>
-                  <p className="text-gray-800 font-semibold">VS · Playbacks da Equipe</p>
-                  <p className="text-gray-400 text-sm mt-0.5">{equipeVS.name}</p>
-                </div>
-                <a
-                  href={equipeVS.vsUrl!}
-                  target="_blank"
-                  rel="noopener"
-                  className="btn-primary flex items-center gap-2 text-sm"
-                >
-                  <Headphones size={15} /> Abrir pasta de VS no OneDrive
-                  <ExternalLink size={12} className="opacity-75" />
-                </a>
+              <div className="p-4 space-y-3">
                 {/* Seletor de equipe se tiver mais de uma com VS */}
                 {minhasEquipes.filter(e => e.vsUrl).length > 1 && (
-                  <div className="flex gap-2 flex-wrap justify-center mt-1">
+                  <div className="flex gap-2 flex-wrap">
                     {minhasEquipes.filter(e => e.vsUrl).map(eq => (
                       <button
                         key={eq.id}
@@ -446,6 +443,33 @@ export default function RepertorioDetalhePage() {
                     ))}
                   </div>
                 )}
+                {/* Iframe embed */}
+                {(() => {
+                  const embedUrl = getOneDriveEmbedUrl(equipeVS.vsUrl!);
+                  return embedUrl ? (
+                    <>
+                      <iframe
+                        src={embedUrl}
+                        title={`VS · Playbacks — ${equipeVS.name}`}
+                        className="w-full rounded-2xl border border-gray-100"
+                        style={{ height: "70vh", minHeight: "400px" }}
+                        allow="fullscreen"
+                      />
+                      <a href={equipeVS.vsUrl!} target="_blank" rel="noopener"
+                        className="text-xs text-gray-400 hover:text-green-500 flex items-center gap-1 w-fit">
+                        <ExternalLink size={11} /> Abrir pasta de VS no OneDrive
+                      </a>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+                      <Headphones size={40} className="text-gray-300" />
+                      <p className="text-gray-500 text-sm">Este link não pode ser embutido. Abra diretamente:</p>
+                      <a href={equipeVS.vsUrl!} target="_blank" rel="noopener" className="btn-primary flex items-center gap-2">
+                        <ExternalLink size={14} /> Abrir VS no OneDrive
+                      </a>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-14 gap-3 text-center px-6">

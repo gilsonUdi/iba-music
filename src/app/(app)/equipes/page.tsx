@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { getEquipes, createEquipe, updateEquipe, deleteEquipe, getAllUsers, updateUser } from "@/lib/firestore";
 import type { Equipe, AppUser } from "@/lib/types";
-import { primaryRoleLabel } from "@/lib/types";
+import { primaryRoleLabel, INSTRUMENTO_LABELS } from "@/lib/types";
 import { toast } from "sonner";
 import { Users2, Plus, Pencil, Trash2, X, UserCheck, ChevronDown, FileText, ExternalLink, Headphones } from "lucide-react";
 import clsx from "clsx";
@@ -227,13 +227,20 @@ export default function EquipesPage() {
                       <div className="flex flex-wrap gap-2">
                         {membrosInfo.map(m => (
                           <div key={m.uid} className="flex items-center gap-1.5 bg-gray-50 rounded-xl px-3 py-1.5">
-                            <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
+                            <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
                               <span className="text-primary-700 font-semibold text-xs">{m.name[0]}</span>
                             </div>
-                            <span className="text-sm text-gray-700">{m.name}</span>
-                            {m.instrumento && (
-                              <span className="text-xs text-gray-400">· {m.instrumento}</span>
-                            )}
+                            <div className="min-w-0">
+                              <span className="text-sm text-gray-700">{m.name}</span>
+                              {(m.instrumentoPrincipal ?? m.instrumento) && (
+                                <p className="text-xs text-gray-400 leading-none mt-0.5">
+                                  {INSTRUMENTO_LABELS[(m.instrumentoPrincipal ?? m.instrumento)!]}
+                                  {m.instrumentos && m.instrumentos.length > 1 && (
+                                    <span className="ml-1 text-gray-300">+{m.instrumentos.length - 1}</span>
+                                  )}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

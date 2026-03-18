@@ -26,7 +26,9 @@ export default function LoginPage() {
   async function onSubmit(data: FormData) {
     try {
       await signIn(data.email, data.password);
-      router.replace("/dashboard");
+      // Força reload completo para garantir que o Firebase Auth inicialize
+      // corretamente na nova página e evitar race condition no primeiro login.
+      window.location.replace("/dashboard");
     } catch {
       toast.error("E-mail ou senha incorretos");
     }

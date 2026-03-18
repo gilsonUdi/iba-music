@@ -35,7 +35,9 @@ export default function PrestacaoPage() {
   const [step, setStep] = useState(0); // 0 = intro, 1..N = perguntas, final = confirmação
 
   useEffect(() => {
-    if (!user || !user.roles?.includes("musico")) { setLoading(false); return; }
+    if (!user) { setLoading(false); return; }
+    const deveResponder = user.roles?.includes("musico") || user.roles?.includes("lider_equipe");
+    if (!deveResponder) { setLoading(false); return; }
     async function load() {
       const [perg, resp, hist] = await Promise.all([
         getPrestacaoPerguntas(),

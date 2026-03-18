@@ -44,8 +44,9 @@ export default function DashboardPage() {
         notificacoes: naoLidas.length,
       });
 
-      // Checar prestação de contas pendente (para músicos)
-      if (user!.roles?.includes("musico") && !user!.roles?.includes("pastor") && !user!.roles?.includes("lider_equipe") && !user!.roles?.includes("lider_celula")) {
+      // Checar prestação de contas pendente (para músicos e líderes de equipe)
+      const deveResponder = (user!.roles?.includes("musico") || user!.roles?.includes("lider_equipe")) && !user!.roles?.includes("pastor") && !user!.roles?.includes("lider_celula");
+      if (deveResponder) {
         const mes = format(hoje, "yyyy-MM");
         const controle = await getPrestacaoControle(mes);
         if (controle && !controle.responderam.includes(user!.uid)) {

@@ -425,10 +425,6 @@ export default function RepertorioPage() {
                 </div>
               </div>
               <div>
-                <label className="label">Link da Cifra</label>
-                <input value={form.cifraUrl ?? ""} onChange={e => setForm(f => ({ ...f, cifraUrl: e.target.value }))} className="input" placeholder="https://cifras..." />
-              </div>
-              <div>
                 <label className="label flex items-center gap-1.5">
                   <Youtube size={13} className="text-red-500" /> YouTube
                 </label>

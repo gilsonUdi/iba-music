@@ -274,12 +274,24 @@ export default function PrestacaoPage() {
             </div>
           )}
 
-          <div className="bg-gray-50 rounded-xl p-4 mb-6">
-            <p className="text-sm text-gray-600">Este formulário tem <strong>{totalSteps} pergunta{totalSteps > 1 ? "s" : ""}</strong> sobre sua integridade e testemunho neste mês.</p>
-            <div className="flex items-center gap-2 mt-3 text-amber-700">
-              <Lock size={14} className="shrink-0" />
-              <p className="text-xs">Suas respostas são <strong>confidenciais</strong>. Apenas você e seu líder poderão visualizá-las.</p>
-            </div>
+          {/* Palavra da pastora */}
+          <div className="bg-primary-50 border border-primary-100 rounded-xl p-5 mb-5">
+            <p className="text-xs font-semibold text-primary-400 uppercase tracking-wider mb-2">Palavra da Liderança</p>
+            <p className="text-sm font-semibold text-primary-800 italic mb-3">
+              "Uma vida vivida sem prestação de contas, é uma vida vivida sem responsabilidade."
+            </p>
+            <p className="text-sm text-gray-600 leading-relaxed mb-4">
+              O propósito desta avaliação não é o de fiscalizar, mas de cuidar do coração dos ministros, incentivando-os a permanecerem firmes na fé e no caminho da santidade. Também não temos a intenção de julgamento, mas sim de motivá-los e guardar o testemunho da igreja.
+            </p>
+            <p className="text-sm text-gray-600 leading-relaxed mb-4">
+              Esperamos que esse formulário seja respondido com a verdade, acreditamos na sua palavra. As únicas pessoas que terão acesso a esse formulário serão o seu líder de célula e os pastores. Conte sempre com a liderança para orar por você e também para te ouvir.
+            </p>
+            <p className="text-xs text-primary-600 font-medium text-right">— Ana Tatis</p>
+          </div>
+
+          <div className="flex items-center gap-2 mb-6 text-amber-700 bg-amber-50 rounded-xl px-4 py-3">
+            <Lock size={14} className="shrink-0" />
+            <p className="text-xs">Suas respostas são <strong>confidenciais</strong>. Apenas você e seu líder poderão visualizá-las.</p>
           </div>
 
           <button onClick={() => setStep(1)} className="btn-primary w-full py-3 flex items-center justify-center gap-2">

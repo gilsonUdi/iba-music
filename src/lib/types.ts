@@ -111,6 +111,7 @@ export interface Escala {
 
 // ── REPERTÓRIO ────────────────────────────────────────────────────────────────
 export type TomMusical = "C" | "C#" | "D" | "D#" | "E" | "F" | "F#" | "G" | "G#" | "A" | "A#" | "B";
+export type MusicaStatus = "pendente" | "aprovada" | "rejeitada";
 
 export interface Musica {
   id: string;
@@ -124,6 +125,11 @@ export interface Musica {
   tags?: string[];
   igrejaId?: string;
   ativo: boolean;
+  // Aprovação pastoral
+  status?: MusicaStatus;          // undefined = aprovada (retrocompat)
+  aprovacaoComentario?: string;   // comentário do pastor
+  aprovadoPor?: string;           // uid do pastor
+  aprovadoEm?: Date;
   createdBy: string;
   createdAt: Date;
 }

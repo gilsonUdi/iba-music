@@ -181,10 +181,38 @@ export async function deleteEscala(id: string) {
 }
 
 // ── MÚSICAS ────────────────────────────────────────────────────────────────────
+function mapMusica(d: { data(): Record<string, unknown>; id: string }): Musica {
+  const data = d.data();
+  return {
+    ...data,
+    id: d.id,
+    createdAt: toDate(data.createdAt),
+    aprovadoEm: data.aprovadoEm ? toDate(data.aprovadoEm) : undefined,
+  } as Musica;
+}
+
+/** Retorna músicas aprovadas (ou sem status = retrocompat). Usada em repertório e setlists. */
 export async function getMusicas(igrejaId?: string): Promise<Musica[]> {
   const q = query(collection(db, "musicas"), orderBy("titulo"));
   const snap = await getDocs(q);
-  const all = snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Musica));
+  const all = snap.docs.map(mapMusica);
+  const aprovadas = all.filter(m => !m.status || m.status === "aprovada");
+  return byIgreja(aprovadas, igrejaId);
+}
+
+/** Retorna músicas pendentes de aprovação (para pastores). */
+export async function getMusicasPendentes(igrejaId?: string): Promise<Musica[]> {
+  const q = query(collection(db, "musicas"), where("status", "==", "pendente"), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  const all = snap.docs.map(mapMusica);
+  return byIgreja(all, igrejaId);
+}
+
+/** Retorna todas as músicas criadas por um usuário (qualquer status). */
+export async function getMusicasByLider(uid: string, igrejaId?: string): Promise<Musica[]> {
+  const q = query(collection(db, "musicas"), where("createdBy", "==", uid), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  const all = snap.docs.map(mapMusica);
   return byIgreja(all, igrejaId);
 }
 

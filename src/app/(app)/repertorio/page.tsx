@@ -13,6 +13,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import clsx from "clsx";
+import YoutubeSearch from "@/components/YoutubeSearch";
 
 const TONS: TomMusical[] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -428,8 +429,14 @@ export default function RepertorioPage() {
                 <input value={form.cifraUrl ?? ""} onChange={e => setForm(f => ({ ...f, cifraUrl: e.target.value }))} className="input" placeholder="https://cifras..." />
               </div>
               <div>
-                <label className="label">Link do YouTube</label>
-                <input value={form.youtubeUrl ?? ""} onChange={e => setForm(f => ({ ...f, youtubeUrl: e.target.value }))} className="input" placeholder="https://youtube.com/..." />
+                <label className="label flex items-center gap-1.5">
+                  <Youtube size={13} className="text-red-500" /> YouTube
+                </label>
+                <YoutubeSearch
+                  value={form.youtubeUrl ?? ""}
+                  onChange={url => setForm(f => ({ ...f, youtubeUrl: url }))}
+                  searchQuery={[form.titulo, form.artista].filter(Boolean).join(" ")}
+                />
               </div>
               <div>
                 <label className="label">Tags (separadas por vírgula)</label>

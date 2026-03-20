@@ -13,8 +13,116 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import {
   Calendar, Plus, X, Trash2, CheckCircle2, XCircle, Clock, Pencil,
-  ChevronDown, ChevronUp, Music2, ListMusic, Users2, Search, ChevronRight,
+  ChevronDown, ChevronUp, Music2, ListMusic, Users2, Search, ChevronRight, Shirt,
 } from "lucide-react";
+
+// ── Paleta de cores de roupas ──────────────────────────────────────────────────
+const CORES_ROUPAS = [
+  { label: "Branco",       hex: "#FFFFFF", border: true },
+  { label: "Prata",        hex: "#cbd5e1" },
+  { label: "Cinza",        hex: "#6b7280" },
+  { label: "Preto",        hex: "#111827" },
+  { label: "Bege",         hex: "#d4b896" },
+  { label: "Marrom",       hex: "#92400e" },
+  { label: "Vinho",        hex: "#7c1d2b" },
+  { label: "Vermelho",     hex: "#dc2626" },
+  { label: "Rosa",         hex: "#f472b6" },
+  { label: "Roxo",         hex: "#7c3aed" },
+  { label: "Azul Marinho", hex: "#1e3a5f" },
+  { label: "Azul",         hex: "#3b82f6" },
+  { label: "Azul Claro",   hex: "#7dd3fc" },
+  { label: "Turquesa",     hex: "#14b8a6" },
+  { label: "Verde",        hex: "#16a34a" },
+  { label: "Verde Oliva",  hex: "#65a30d" },
+  { label: "Amarelo",      hex: "#fbbf24" },
+  { label: "Laranja",      hex: "#f97316" },
+  { label: "Dourado",      hex: "#d97706" },
+];
+
+function PaletaPicker({
+  selected,
+  onChange,
+  readonly,
+}: {
+  selected: string[];
+  onChange?: (cores: string[]) => void;
+  readonly?: boolean;
+}) {
+  function toggle(hex: string) {
+    if (readonly || !onChange) return;
+    onChange(selected.includes(hex) ? selected.filter(c => c !== hex) : [...selected, hex]);
+  }
+
+  if (readonly) {
+    if (!selected.length) return null;
+    return (
+      <div className="flex items-center gap-1">
+        <Shirt size={11} className="text-gray-400 shrink-0" />
+        {selected.map(hex => {
+          const cor = CORES_ROUPAS.find(c => c.hex === hex);
+          return (
+            <span
+              key={hex}
+              title={cor?.label ?? hex}
+              className="w-4 h-4 rounded-full shrink-0 ring-1 ring-black/10"
+              style={{ backgroundColor: hex }}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="grid grid-cols-10 gap-2">
+        {CORES_ROUPAS.map(cor => {
+          const sel = selected.includes(cor.hex);
+          return (
+            <button
+              key={cor.hex}
+              type="button"
+              title={cor.label}
+              onClick={() => toggle(cor.hex)}
+              className={clsx(
+                "w-7 h-7 rounded-full transition-all",
+                cor.border ? "ring-1 ring-gray-200" : "",
+                sel ? "ring-2 ring-offset-2 ring-primary-500 scale-110" : "hover:scale-110"
+              )}
+              style={{ backgroundColor: cor.hex }}
+            />
+          );
+        })}
+      </div>
+      {selected.length > 0 && (
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <span className="text-xs text-gray-500">Paleta:</span>
+          {selected.map(hex => {
+            const cor = CORES_ROUPAS.find(c => c.hex === hex);
+            return (
+              <span
+                key={hex}
+                className="inline-flex items-center gap-1.5 text-xs bg-gray-100 rounded-full pl-1.5 pr-2.5 py-0.5"
+              >
+                <span className="w-3 h-3 rounded-full ring-1 ring-black/10" style={{ backgroundColor: hex }} />
+                {cor?.label}
+                {onChange && (
+                  <button
+                    type="button"
+                    onClick={() => onChange(selected.filter(c => c !== hex))}
+                    className="ml-0.5 text-gray-400 hover:text-red-500"
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 import clsx from "clsx";
 
 // ── Dropdown multi-seleção de músicas ─────────────────────────────────────────
@@ -157,7 +265,13 @@ export default function EscalasPage() {
   const [observacoes, setObservacoes] = useState("");
   const [selectedMusicos, setSelectedMusicos] = useState<AppUser[]>([]);
   const [selectedSetlist, setSelectedSetlist] = useState<string[]>([]);
+  const [selectedPaleta, setSelectedPaleta] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Edição de paleta de cores de escala existente
+  const [editingPaletaId, setEditingPaletaId] = useState<string | null>(null);
+  const [editPaleta, setEditPaleta] = useState<string[]>([]);
+  const [savingPaleta, setSavingPaleta] = useState(false);
 
   // Edição de setlist de escala existente
   const [editingSetlistId, setEditingSetlistId] = useState<string | null>(null);
@@ -182,6 +296,7 @@ export default function EscalasPage() {
     setObservacoes("");
     setSelectedMusicos([]);
     setSelectedSetlist([]);
+    setSelectedPaleta([]);
     setShowModal(true);
   }
 
@@ -241,6 +356,7 @@ export default function EscalasPage() {
         membros,
         observacoes,
         setlist: selectedSetlist,
+        paletaCores: selectedPaleta,
         igrejaId: user?.igrejaId,
         createdBy: user!.uid,
       });
@@ -266,6 +382,24 @@ export default function EscalasPage() {
     await deleteEscala(id);
     toast.success("Escala excluída");
     await load();
+  }
+
+  function openEditPaleta(escala: Escala) {
+    setEditingPaletaId(escala.id);
+    setEditPaleta(escala.paletaCores ?? []);
+  }
+
+  async function savePaleta() {
+    if (!editingPaletaId) return;
+    setSavingPaleta(true);
+    try {
+      await updateEscala(editingPaletaId, { paletaCores: editPaleta });
+      toast.success("Paleta de cores atualizada!");
+      setEditingPaletaId(null);
+      await load();
+    } finally {
+      setSavingPaleta(false);
+    }
   }
 
   function openEditSetlist(escala: Escala) {
@@ -384,6 +518,9 @@ export default function EscalasPage() {
                           <ListMusic size={12} className="text-primary-400" /> {setlistMusicas.length} música{setlistMusicas.length !== 1 ? "s" : ""}
                         </span>
                       )}
+                      {(escala.paletaCores ?? []).length > 0 && (
+                        <PaletaPicker selected={escala.paletaCores!} readonly />
+                      )}
                     </div>
                   </div>
 
@@ -485,6 +622,53 @@ export default function EscalasPage() {
                         </div>
                       ) : (
                         <p className="text-sm text-gray-400 italic">Nenhuma música no setlist ainda.</p>
+                      )}
+                    </div>
+
+                    {/* Paleta de cores */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <Shirt size={13} /> Combinação de Roupas
+                        </p>
+                        {canEdit && editingPaletaId !== escala.id && (
+                          <button
+                            onClick={() => openEditPaleta(escala)}
+                            className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary-50 transition-colors"
+                          >
+                            <Pencil size={11} /> Editar cores
+                          </button>
+                        )}
+                      </div>
+                      {editingPaletaId === escala.id ? (
+                        <div className="bg-white rounded-2xl p-4 border border-gray-100 space-y-3">
+                          <PaletaPicker selected={editPaleta} onChange={setEditPaleta} />
+                          <div className="flex gap-2 pt-1">
+                            <button onClick={() => setEditingPaletaId(null)} className="btn-secondary text-sm flex-1">Cancelar</button>
+                            <button onClick={savePaleta} disabled={savingPaleta} className="btn-primary text-sm flex-1">
+                              {savingPaleta ? "Salvando..." : "Salvar cores"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (escala.paletaCores ?? []).length > 0 ? (
+                        <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                          <PaletaPicker selected={escala.paletaCores!} readonly />
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {escala.paletaCores!.map(hex => {
+                              const cor = CORES_ROUPAS.find(c => c.hex === hex);
+                              return (
+                                <span key={hex} className="inline-flex items-center gap-2 text-sm bg-gray-50 rounded-full px-3 py-1.5 border border-gray-100">
+                                  <span className="w-4 h-4 rounded-full ring-1 ring-black/10 shrink-0" style={{ backgroundColor: hex }} />
+                                  {cor?.label ?? hex}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">
+                          {canEdit ? "Nenhuma cor definida ainda." : "Combinação de roupas não definida."}
+                        </p>
                       )}
                     </div>
 
@@ -652,6 +836,15 @@ export default function EscalasPage() {
                   selected={selectedSetlist}
                   onChange={setSelectedSetlist}
                 />
+              </div>
+
+              {/* Paleta de cores */}
+              <div>
+                <label className="label flex items-center gap-1.5">
+                  <Shirt size={14} className="text-primary-500" /> Combinação de roupas
+                </label>
+                <p className="text-xs text-gray-400 mb-3">Selecione os tons que a equipe vai usar</p>
+                <PaletaPicker selected={selectedPaleta} onChange={setSelectedPaleta} />
               </div>
 
               {/* Observações */}

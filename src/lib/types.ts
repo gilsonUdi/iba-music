@@ -103,6 +103,7 @@ export interface Escala {
   membros: EscalaMembro[];
   observacoes?: string;
   setlist?: string[];    // IDs das músicas
+  paletaCores?: string[]; // hex das cores de roupa combinadas
   igrejaId?: string;
   createdBy: string;
   createdAt: Date;

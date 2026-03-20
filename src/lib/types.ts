@@ -159,6 +159,7 @@ export interface Equipe {
   membros: string[];   // array de UIDs dos músicos
   cifraUrl?: string;   // Google Docs com todas as cifras da equipe
   vsUrl?: string;      // OneDrive com os VS (playbacks/stems) da equipe
+  cor?: string;        // cor identificadora da equipe (hex)
   igrejaId?: string;
   ativo: boolean;
   createdBy: string;

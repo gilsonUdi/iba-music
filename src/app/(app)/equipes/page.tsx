@@ -10,7 +10,22 @@ import { Users2, Plus, Pencil, Trash2, X, UserCheck, ChevronDown, FileText, Exte
 import clsx from "clsx";
 
 type Form = Omit<Equipe, "id" | "createdAt" | "createdBy" | "liderName">;
-const EMPTY: Form = { name: "", descricao: "", liderId: "", membros: [], cifraUrl: "", vsUrl: "", ativo: true };
+const EMPTY: Form = { name: "", descricao: "", liderId: "", membros: [], cifraUrl: "", vsUrl: "", cor: undefined, ativo: true };
+
+const CORES_EQUIPE = [
+  { label: "Violeta",      hex: "#7c3aed" },
+  { label: "Azul",         hex: "#2563eb" },
+  { label: "Ciano",        hex: "#0891b2" },
+  { label: "Verde",        hex: "#16a34a" },
+  { label: "Lima",         hex: "#65a30d" },
+  { label: "Amarelo",      hex: "#d97706" },
+  { label: "Laranja",      hex: "#ea580c" },
+  { label: "Vermelho",     hex: "#dc2626" },
+  { label: "Rosa",         hex: "#db2777" },
+  { label: "Cinza",        hex: "#4b5563" },
+  { label: "Preto",        hex: "#111827" },
+  { label: "Teal",         hex: "#0d9488" },
+];
 
 export default function EquipesPage() {
   const { user } = useAuth();
@@ -42,7 +57,7 @@ export default function EquipesPage() {
 
   function openEdit(e: Equipe) {
     setEditingEquipe(e);
-    setForm({ name: e.name, descricao: e.descricao, liderId: e.liderId, membros: e.membros, cifraUrl: e.cifraUrl ?? "", vsUrl: e.vsUrl ?? "", ativo: e.ativo });
+    setForm({ name: e.name, descricao: e.descricao, liderId: e.liderId, membros: e.membros, cifraUrl: e.cifraUrl ?? "", vsUrl: e.vsUrl ?? "", cor: e.cor, ativo: e.ativo });
     setShowModal(true);
   }
 
@@ -128,14 +143,14 @@ export default function EquipesPage() {
             const membrosInfo = getMembrosInfo(eq);
             const isExpanded = expanded === eq.id;
             return (
-              <div key={eq.id} className="card overflow-hidden">
+              <div key={eq.id} className="card overflow-hidden" style={eq.cor ? { borderLeft: `4px solid ${eq.cor}` } : {}}>
                 <div
                   className="flex items-center gap-4 p-4 cursor-pointer"
                   onClick={() => setExpanded(isExpanded ? null : eq.id)}
                 >
                   {/* Ícone */}
-                  <div className="w-11 h-11 bg-primary-100 rounded-2xl flex items-center justify-center shrink-0">
-                    <Users2 size={20} className="text-primary-600" />
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: eq.cor ? `${eq.cor}22` : undefined, border: eq.cor ? `1.5px solid ${eq.cor}44` : undefined }}>
+                    <Users2 size={20} style={{ color: eq.cor ?? "#7c3aed" }} />
                   </div>
 
                   {/* Info */}
@@ -303,6 +318,31 @@ export default function EquipesPage() {
                   className="input"
                   placeholder="https://onedrive.live.com/..."
                 />
+              </div>
+              <div>
+                <label className="label">Cor da Equipe</label>
+                <p className="text-xs text-gray-400 mb-2">Usada para identificar a equipe nas escalas</p>
+                <div className="flex flex-wrap gap-2">
+                  {CORES_EQUIPE.map(c => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      title={c.label}
+                      onClick={() => setForm(f => ({ ...f, cor: f.cor === c.hex ? undefined : c.hex }))}
+                      className={clsx(
+                        "w-8 h-8 rounded-full transition-all",
+                        form.cor === c.hex ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : "hover:scale-110 opacity-70 hover:opacity-100"
+                      )}
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  ))}
+                </div>
+                {form.cor && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Cor selecionada: <span className="font-medium">{CORES_EQUIPE.find(c => c.hex === form.cor)?.label}</span>
+                    <button type="button" onClick={() => setForm(f => ({ ...f, cor: undefined }))} className="ml-2 text-red-400 hover:text-red-600">remover</button>
+                  </p>
+                )}
               </div>
               <div>
                 <label className="label">Líder Responsável *</label>

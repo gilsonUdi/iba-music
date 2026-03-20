@@ -339,6 +339,12 @@ export default function EscalasPage() {
   async function handleCreate() {
     if (!data) { toast.error("Selecione a data do culto"); return; }
     if (selectedMusicos.length === 0) { toast.error("Selecione ao menos um músico"); return; }
+    // Bloqueia duas equipes no mesmo dia para a mesma igreja
+    const conflito = escalas.find(e => e.data === data && e.igrejaId === user?.igrejaId);
+    if (conflito) {
+      toast.error(`Já existe uma escala para ${format(parseISO(data), "dd/MM/yyyy")} (${conflito.equipeName ?? "sem equipe"}). Cada dia só pode ter uma equipe escalada.`);
+      return;
+    }
     setSaving(true);
     try {
       const equipe = equipes.find(e => e.id === equipeId);
@@ -472,19 +478,20 @@ export default function EscalasPage() {
             const pendentes = escala.membros.filter(m => m.confirmado === null).length;
             const setlistMusicas = (escala.setlist ?? []).map(id => getMusicaById(id)).filter(Boolean) as Musica[];
 
+            const equipeCor = equipes.find(e => e.id === escala.equipeId)?.cor;
             return (
-              <div key={escala.id} className="card overflow-hidden">
+              <div key={escala.id} className="card overflow-hidden" style={equipeCor ? { borderLeft: `4px solid ${equipeCor}` } : {}}>
                 {/* Cabeçalho */}
                 <div
                   className="flex items-center gap-4 p-5 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => setExpandedId(expanded ? null : escala.id)}
                 >
                   {/* Data */}
-                  <div className="w-14 h-14 bg-primary-100 rounded-2xl flex flex-col items-center justify-center shrink-0">
-                    <span className="text-primary-700 font-bold text-lg leading-none">
+                  <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0" style={{ backgroundColor: equipeCor ? `${equipeCor}22` : undefined, border: equipeCor ? `1.5px solid ${equipeCor}44` : undefined }}>
+                    <span className="font-bold text-lg leading-none" style={{ color: equipeCor ?? "#6d28d9" }}>
                       {format(parseISO(escala.data), "dd")}
                     </span>
-                    <span className="text-primary-500 text-xs capitalize">
+                    <span className="text-xs capitalize" style={{ color: equipeCor ?? "#7c3aed" }}>
                       {format(parseISO(escala.data), "MMM", { locale: ptBR })}
                     </span>
                   </div>

@@ -144,74 +144,72 @@ export default function PrestacaoPage() {
 
   // Já respondeu
   if (respostaExistente) {
-    const historicoAnteriores = historico.filter(h => h.mes !== mes);
+    const todoHistorico = historico.length > 0 ? historico : [respostaExistente];
     return (
       <div className="max-w-lg mx-auto space-y-4">
-        <div className="card p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 size={32} className="text-green-500" />
+        <div className="card p-6 text-center">
+          <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <CheckCircle2 size={28} className="text-green-500" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Prestação enviada!</h1>
-          <p className="text-gray-500">
-            Você já respondeu o formulário de <span className="capitalize font-medium">{mesFormatado}</span>.
+          <h1 className="text-xl font-bold text-gray-900 mb-1">Prestação enviada!</h1>
+          <p className="text-gray-500 text-sm">
+            Formulário de <span className="capitalize font-medium">{mesFormatado}</span> enviado em{" "}
+            {format(respostaExistente.enviadoEm, "dd/MM/yyyy 'às' HH:mm")}
           </p>
-          <p className="text-sm text-gray-400 mt-2">
-            Enviado em {format(respostaExistente.enviadoEm, "dd/MM/yyyy 'às' HH:mm")}
-          </p>
-          <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-100">
-            <div className="flex items-start gap-2 text-amber-700">
-              <Lock size={15} className="shrink-0 mt-0.5" />
-              <p className="text-sm">Suas respostas são <strong>confidenciais</strong> e visíveis apenas para você e seu líder de célula.</p>
-            </div>
+          <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2 text-amber-700">
+            <Lock size={14} className="shrink-0 mt-0.5" />
+            <p className="text-xs">Suas respostas são <strong>confidenciais</strong> — visíveis apenas para você e seu líder de célula.</p>
           </div>
         </div>
 
-        {/* Histórico de meses anteriores */}
-        {historicoAnteriores.length > 0 && (
-          <div className="card overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-800 text-sm">Histórico de respostas</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Somente leitura — suas respostas anteriores</p>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {historicoAnteriores.map(h => {
-                const isOpen = expandedHist === h.mes;
-                const mesLabel = format(parseISO(`${h.mes}-01`), "MMMM 'de' yyyy", { locale: ptBR });
-                return (
-                  <div key={h.mes}>
-                    <button
-                      onClick={() => setExpandedHist(isOpen ? null : h.mes)}
-                      className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors text-left"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-gray-800 capitalize">{mesLabel}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Enviado em {format(h.enviadoEm, "dd/MM/yyyy")}
-                        </p>
-                      </div>
-                      <ChevronDown size={16} className={clsx("text-gray-400 transition-transform", isOpen && "rotate-180")} />
-                    </button>
-                    {isOpen && (
-                      <div className="px-5 pb-5 bg-gray-50 border-t border-gray-100 space-y-4">
-                        {perguntas.map(p => {
-                          const valor = h.respostas[p.id];
-                          return (
-                            <div key={p.id}>
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{p.texto}</p>
-                              <p className="text-sm text-gray-800 bg-white rounded-xl px-4 py-3 border border-gray-100">
-                                {Array.isArray(valor) ? valor.join(", ") : String(valor ?? "—")}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {/* Histórico completo (inclui mês atual) */}
+        <div className="card overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-800 text-sm">Minhas respostas</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Somente leitura</p>
           </div>
-        )}
+          <div className="divide-y divide-gray-50">
+            {todoHistorico.map(h => {
+              const isOpen = expandedHist === h.mes;
+              const mesLabel = format(parseISO(`${h.mes}-01`), "MMMM 'de' yyyy", { locale: ptBR });
+              const isAtual = h.mes === mes;
+              return (
+                <div key={h.mes}>
+                  <button
+                    onClick={() => setExpandedHist(isOpen ? null : h.mes)}
+                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 capitalize flex items-center gap-2">
+                        {mesLabel}
+                        {isAtual && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-normal">Atual</span>}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Enviado em {format(h.enviadoEm, "dd/MM/yyyy")}
+                      </p>
+                    </div>
+                    <ChevronDown size={16} className={clsx("text-gray-400 transition-transform", isOpen && "rotate-180")} />
+                  </button>
+                  {isOpen && (
+                    <div className="px-5 pb-5 bg-gray-50 border-t border-gray-100 space-y-4">
+                      {perguntas.map(p => {
+                        const valor = h.respostas[p.id];
+                        return (
+                          <div key={p.id}>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{p.texto}</p>
+                            <p className="text-sm text-gray-800 bg-white rounded-xl px-4 py-3 border border-gray-100">
+                              {Array.isArray(valor) ? valor.join(", ") : String(valor ?? "—")}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }

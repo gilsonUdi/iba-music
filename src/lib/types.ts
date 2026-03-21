@@ -1,12 +1,13 @@
 // ── ROLES ─────────────────────────────────────────────────────────────────────
-export type UserRole = "super_admin" | "pastor" | "lider_equipe" | "lider_celula" | "musico";
+export type UserRole = "super_admin" | "pastor" | "diretor_musical" | "lider_equipe" | "lider_celula" | "musico";
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: "Super Admin",
-  pastor: "Pastor",
-  lider_equipe: "Líder de Equipe",
-  lider_celula: "Líder de Célula",
-  musico: "Músico",
+  super_admin:     "Super Admin",
+  pastor:          "Pastor",
+  diretor_musical: "Diretor Musical",
+  lider_equipe:    "Líder de Equipe",
+  lider_celula:    "Líder de Célula",
+  musico:          "Músico",
 };
 
 /** Helper — verifica se o usuário possui um determinado papel */
@@ -16,10 +17,11 @@ export function hasRole(user: { roles: UserRole[] } | null | undefined, role: Us
 
 /** Retorna o label do papel mais alto do usuário (para exibição resumida) */
 export function primaryRoleLabel(roles: UserRole[]): string {
-  if (roles.includes("super_admin")) return ROLE_LABELS.super_admin;
-  if (roles.includes("pastor")) return ROLE_LABELS.pastor;
-  if (roles.includes("lider_equipe")) return ROLE_LABELS.lider_equipe;
-  if (roles.includes("lider_celula")) return ROLE_LABELS.lider_celula;
+  if (roles.includes("super_admin"))     return ROLE_LABELS.super_admin;
+  if (roles.includes("pastor"))          return ROLE_LABELS.pastor;
+  if (roles.includes("diretor_musical")) return ROLE_LABELS.diretor_musical;
+  if (roles.includes("lider_equipe"))    return ROLE_LABELS.lider_equipe;
+  if (roles.includes("lider_celula"))    return ROLE_LABELS.lider_celula;
   return ROLE_LABELS.musico;
 }
 

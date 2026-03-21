@@ -443,7 +443,7 @@ export default function EscalasPage() {
     ? todosUsers.filter(u => equipes.find(e => e.id === equipeId)?.membros.includes(u.uid))
     : todosUsers;
 
-  const canEdit = user?.roles?.includes("pastor") || user?.roles?.includes("lider_equipe");
+  const canEdit = user?.roles?.includes("pastor") || user?.roles?.includes("diretor_musical") || user?.roles?.includes("lider_equipe");
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

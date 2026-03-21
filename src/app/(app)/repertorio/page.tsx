@@ -99,11 +99,13 @@ function CardPendente({
   musica,
   pastorUid,
   totalPastores,
+  readonly = false,
   onVotar,
 }: {
   musica: Musica;
   pastorUid: string;
   totalPastores: number;
+  readonly?: boolean;
   onVotar: (id: string, pontuacao: number, comentario: string) => Promise<void>;
 }) {
   const meuVoto = musica.votos?.[pastorUid];
@@ -189,8 +191,8 @@ function CardPendente({
             </div>
           )}
 
-          {/* Formulário de voto */}
-          <div className="bg-white rounded-2xl p-4 border border-primary-100 space-y-3">
+          {/* Formulário de voto — oculto para diretor */}
+          {!readonly && <div className="bg-white rounded-2xl p-4 border border-primary-100 space-y-3">
             <p className="text-sm font-semibold text-gray-700">
               {meuVoto ? "Atualizar meu voto" : "Meu voto"}
             </p>
@@ -219,7 +221,7 @@ function CardPendente({
             >
               {saving ? "Salvando..." : meuVoto ? "Atualizar voto" : "Registrar voto"}
             </button>
-          </div>
+          </div>}
         </div>
       )}
     </div>
@@ -317,7 +319,8 @@ export default function RepertorioPage() {
   const { user } = useAuth();
 
   const isPastor      = user?.roles?.includes("pastor") ?? false;
-  const isLiderEquipe = (user?.roles?.includes("lider_equipe") && !isPastor) ?? false;
+  const isDiretor     = (user?.roles?.includes("diretor_musical") && !isPastor) ?? false;
+  const isLiderEquipe = (user?.roles?.includes("lider_equipe") && !isPastor && !isDiretor) ?? false;
 
   type Tab = "geral" | "votar" | "submissoes" | "meu";
   const [tab, setTab] = useState<Tab>("geral");
@@ -343,7 +346,7 @@ export default function RepertorioPage() {
       getMusicas().then(setMusicas),
       getAllPastores().then(ps => setTotalPastores(ps.length)),
     ];
-    if (isPastor)      tasks.push(getMusicasPendentes().then(setPendentes));
+    if (isPastor || isDiretor) tasks.push(getMusicasPendentes().then(setPendentes));
     if (isLiderEquipe && user?.uid) {
       tasks.push(getMusicasByLider(user.uid).then(setMinhas));
       tasks.push(
@@ -414,13 +417,13 @@ export default function RepertorioPage() {
     m.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const canSubmit = isPastor || isLiderEquipe;
+  const canSubmit = isPastor || isDiretor || isLiderEquipe;
 
   // ── Tabs config ───────────────────────────────────────────────────────────────
   const tabs = [
     { id: "geral" as Tab, label: "Repertório Geral", show: true },
-    { id: "votar" as Tab, label: "Para Votar", badge: pendentes.length, show: isPastor },
-    { id: "submissoes" as Tab, label: "Minhas Submissões", show: isLiderEquipe },
+    { id: "votar" as Tab, label: "Para Votar", badge: pendentes.length, show: isPastor || isDiretor },
+    { id: "submissoes" as Tab, label: "Minhas Submissões", show: isLiderEquipe || isDiretor },
     { id: "meu" as Tab, label: "Meu Repertório", show: isLiderEquipe },
   ].filter(t => t.show);
 
@@ -544,7 +547,7 @@ export default function RepertorioPage() {
           )}
 
           {/* ── Aba Para Votar (pastores) ─────────────────────────────────────── */}
-          {tab === "votar" && isPastor && (
+          {tab === "votar" && (isPastor || isDiretor) && (
             <>
               {pendentes.length === 0 ? (
                 <div className="card p-12 text-center text-gray-400">
@@ -553,15 +556,23 @@ export default function RepertorioPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-500">
-                    {pendentes.filter(m => m.votos?.[user!.uid]).length} de {pendentes.length} avaliadas por você
-                  </p>
+                  {isDiretor && (
+                    <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
+                      Como Diretor Musical, você acompanha as votações mas não participa da avaliação das músicas.
+                    </p>
+                  )}
+                  {isPastor && (
+                    <p className="text-sm text-gray-500">
+                      {pendentes.filter(m => m.votos?.[user!.uid]).length} de {pendentes.length} avaliadas por você
+                    </p>
+                  )}
                   {pendentes.map(m => (
                     <CardPendente
                       key={m.id}
                       musica={m}
                       pastorUid={user!.uid}
                       totalPastores={totalPastores}
+                      readonly={isDiretor}
                       onVotar={handleVotar}
                     />
                   ))}
@@ -571,7 +582,7 @@ export default function RepertorioPage() {
           )}
 
           {/* ── Aba Minhas Submissões (lider_equipe) ─────────────────────────── */}
-          {tab === "submissoes" && isLiderEquipe && (
+          {tab === "submissoes" && (isLiderEquipe || isDiretor) && (
             <>
               {minhas.length === 0 ? (
                 <div className="card p-12 text-center text-gray-400">

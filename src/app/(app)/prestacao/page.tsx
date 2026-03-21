@@ -79,8 +79,8 @@ export default function PrestacaoPage() {
     }
   }
 
-  // Pastores/líderes veem menu de navegação
-  if (user?.roles?.includes("pastor")) {
+  // Pastores e Diretores Musicais veem menu de navegação
+  if (user?.roles?.includes("pastor") || user?.roles?.includes("diretor_musical")) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div>

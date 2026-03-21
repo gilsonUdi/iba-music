@@ -15,14 +15,17 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 
-const ALL_ROLES: UserRole[] = ["pastor", "lider_equipe", "lider_celula", "musico"];
+const ALL_ROLES: UserRole[] = ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"];
+// Roles que o Diretor Musical pode atribuir (não pode criar pastor nem outro diretor)
+const ROLES_DIRETOR: UserRole[] = ["lider_equipe", "lider_celula", "musico"];
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  super_admin: "bg-orange-100 text-orange-700",
-  pastor: "bg-red-100 text-red-700",
-  lider_equipe: "bg-blue-100 text-blue-700",
-  lider_celula: "bg-purple-100 text-purple-700",
-  musico: "bg-gray-100 text-gray-600",
+  super_admin:     "bg-orange-100 text-orange-700",
+  pastor:          "bg-red-100 text-red-700",
+  diretor_musical: "bg-indigo-100 text-indigo-700",
+  lider_equipe:    "bg-blue-100 text-blue-700",
+  lider_celula:    "bg-purple-100 text-purple-700",
+  musico:          "bg-gray-100 text-gray-600",
 };
 
 interface FormData {
@@ -172,9 +175,10 @@ export default function MembrosPage() {
   }
 
   const isPastor = user?.roles?.includes("pastor");
-  const isLiderEquipe = user?.roles?.includes("lider_equipe") && !user?.roles?.includes("pastor");
-  const canManage = isPastor || isLiderEquipe;
-  const isOnlyMusico = !isPastor && !isLiderEquipe && !user?.roles?.includes("lider_celula");
+  const isDiretor = user?.roles?.includes("diretor_musical") && !isPastor;
+  const isLiderEquipe = user?.roles?.includes("lider_equipe") && !isPastor && !isDiretor;
+  const canManage = isPastor || isDiretor || isLiderEquipe;
+  const isOnlyMusico = !isPastor && !isDiretor && !isLiderEquipe && !user?.roles?.includes("lider_celula");
 
   // Lider de equipe vê apenas os membros da sua equipe
   const usersVisiveis = isLiderEquipe && minhaEquipe
@@ -200,9 +204,11 @@ export default function MembrosPage() {
     );
   }
 
-  // Lider de equipe só pode atribuir o cargo músico
+  // Roles disponíveis por nível de acesso
   const rolesDisponiveis: UserRole[] = isPastor
     ? ALL_ROLES
+    : isDiretor
+    ? ROLES_DIRETOR
     : ["musico"];
 
   const showsInstrumento = form.roles.includes("musico");

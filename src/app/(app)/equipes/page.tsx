@@ -38,7 +38,7 @@ export default function EquipesPage() {
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const canEdit = user?.roles?.includes("pastor") || user?.roles?.includes("lider_equipe");
+  const canEdit = user?.roles?.includes("pastor") || user?.roles?.includes("diretor_musical") || user?.roles?.includes("lider_equipe");
 
   async function load() {
     setLoading(true);

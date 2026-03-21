@@ -13,11 +13,12 @@ service cloud.firestore {
       return d.get("roles", [d.get("role", "musico")]);
     }
 
-    function isSuperAdmin() { return isAuth() && userRoles().hasAny(["super_admin"]); }
-    function isPastor()     { return isAuth() && userRoles().hasAny(["super_admin", "pastor"]); }
-    function isLiderEquipe(){ return isAuth() && userRoles().hasAny(["super_admin", "pastor", "lider_equipe"]); }
-    function isLiderCelula(){ return isAuth() && userRoles().hasAny(["super_admin", "pastor", "lider_celula"]); }
-    function isMembro()     { return isAuth(); }
+    function isSuperAdmin()    { return isAuth() && userRoles().hasAny(["super_admin"]); }
+    function isPastor()        { return isAuth() && userRoles().hasAny(["super_admin", "pastor"]); }
+    function isDiretor()       { return isAuth() && userRoles().hasAny(["super_admin", "pastor", "diretor_musical"]); }
+    function isLiderEquipe()   { return isAuth() && userRoles().hasAny(["super_admin", "pastor", "diretor_musical", "lider_equipe"]); }
+    function isLiderCelula()   { return isAuth() && userRoles().hasAny(["super_admin", "pastor", "diretor_musical", "lider_celula"]); }
+    function isMembro()        { return isAuth(); }
 
     // igrejaId do usuário autenticado
     function myIgrejaId() { return userData().get("igrejaId", null); }
@@ -50,10 +51,10 @@ service cloud.firestore {
     match /users/{userId} {
       // Qualquer membro pode ler usuários da própria igreja (ou o próprio perfil)
       allow read:   if isMembro() && (sameIgreja(resource.data) || uid() == userId);
-      // Pastor cadastra membros; igrejaId do novo doc deve ser o mesmo do pastor
-      allow create: if isPastor() && sameIgrejaNew();
-      // Pastor atualiza membros da sua igreja; membro atualiza o próprio perfil
-      allow update: if (isPastor() && sameIgreja(resource.data)) || uid() == userId;
+      // Pastor e Diretor cadastram membros; igrejaId do novo doc deve ser o mesmo
+      allow create: if isDiretor() && sameIgrejaNew();
+      // Pastor/Diretor atualizam membros; membro atualiza o próprio perfil
+      allow update: if (isDiretor() && sameIgreja(resource.data)) || uid() == userId;
       allow delete: if isPastor() && sameIgreja(resource.data);
     }
 

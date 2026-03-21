@@ -49,8 +49,14 @@ service cloud.firestore {
 
     // ───── Users ──────────────────────────────────────────────────
     match /users/{userId} {
-      // Qualquer membro pode ler usuários da própria igreja (ou o próprio perfil)
-      allow read:   if isMembro() && (sameIgreja(resource.data) || uid() == userId);
+      // Membros leem usuários da mesma igreja, o próprio perfil,
+      // ou qualquer pastor/diretor (necessário para contagem de votos no repertório compartilhado)
+      allow read:   if isMembro() && (
+        uid() == userId
+        || sameIgreja(resource.data)
+        || resource.data.get("roles", []).hasAny(["pastor", "diretor_musical"])
+        || resource.data.get("role", "") in ["pastor", "diretor_musical"]
+      );
       // Pastor e Diretor cadastram membros; igrejaId do novo doc deve ser o mesmo
       allow create: if isDiretor() && sameIgrejaNew();
       // Pastor/Diretor atualizam membros; membro atualiza o próprio perfil
@@ -74,8 +80,9 @@ service cloud.firestore {
     }
 
     // ───── Músicas ────────────────────────────────────────────────
+    // Repertório é compartilhado entre todas as igrejas — qualquer membro autenticado lê
     match /musicas/{musicaId} {
-      allow read:                   if isMembro() && sameIgreja(resource.data);
+      allow read:                   if isMembro();
       allow create:                 if isLiderEquipe() && sameIgrejaNew();
       allow update:                 if (isLiderEquipe() && sameIgreja(resource.data)) || isPastor();
       allow delete:                 if isLiderEquipe() && sameIgreja(resource.data);

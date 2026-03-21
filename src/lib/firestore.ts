@@ -237,9 +237,12 @@ export async function deleteMusica(id: string) {
   await deleteDoc(doc(db, "musicas", id));
 }
 
-/** Retorna todos os pastores ativos de todas as igrejas. */
+/** Retorna todos os pastores ativos de todas as igrejas (formato novo: roles array). */
 export async function getAllPastores(): Promise<AppUser[]> {
-  const snap = await getDocs(collection(db, "users"));
+  // Filtra diretamente no Firestore — compatível com a regra de segurança que permite
+  // leitura de qualquer usuário com role "pastor" por qualquer membro autenticado
+  const q = query(collection(db, "users"), where("roles", "array-contains", "pastor"));
+  const snap = await getDocs(q);
   return snap.docs
     .map(d => ({
       ...d.data(),
@@ -247,7 +250,7 @@ export async function getAllPastores(): Promise<AppUser[]> {
       roles: normalizeRoles(d.data() as Record<string, unknown>),
       createdAt: toDate(d.data().createdAt),
     } as AppUser))
-    .filter(u => u.ativo && u.roles.includes("pastor"));
+    .filter(u => u.ativo !== false); // inclui ativos (undefined = ativo por retrocompat)
 }
 
 /** Registra o voto de um pastor em uma música e auto-aprova quando todos votaram. */

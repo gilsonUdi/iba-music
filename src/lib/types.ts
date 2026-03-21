@@ -75,6 +75,7 @@ export interface AppUser {
   instrumentoPrincipal?: Instrumento;   // instrumento principal (exibição / escalas)
   liderUid?: string;         // UID do líder de célula (para músicos)
   telefone?: string;
+  senhaTemporaria?: boolean; // true quando o admin cria o usuário — força troca de senha no 1º login
   ativo: boolean;
   createdAt: Date;
 }

@@ -59,7 +59,7 @@ export async function registerUser(
 
   try {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    await createUser(cred.user.uid, { email, name, roles, liderUid, igrejaId, ...extras });
+    await createUser(cred.user.uid, { email, name, roles, liderUid, igrejaId, senhaTemporaria: true, ...extras });
     return cred.user;
   } finally {
     // Destrói a instância secundária — sessão principal continua intacta

@@ -34,7 +34,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
-  }, [user, loading, router]);
+    if (!loading && user?.senhaTemporaria && pathname !== "/alterar-senha") {
+      router.replace("/alterar-senha");
+    }
+  }, [user, loading, router, pathname]);
 
   if (loading || !user) {
     return (

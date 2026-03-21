@@ -39,6 +39,7 @@ export default function EquipesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const canEdit = user?.roles?.includes("pastor") || user?.roles?.includes("diretor_musical") || user?.roles?.includes("lider_equipe");
+  const canPromote = user?.roles?.includes("pastor") || user?.roles?.includes("diretor_musical");
 
   async function load() {
     setLoading(true);
@@ -69,7 +70,8 @@ export default function EquipesPage() {
       const lider = users.find(u => u.uid === form.liderId);
       const liderName = lider?.name ?? "";
       // Auto-promove o líder selecionado para lider_equipe se ainda não tiver esse papel
-      if (lider && !lider.roles.includes("lider_equipe")) {
+      // (apenas pastor/diretor têm permissão de atualizar outros usuários)
+      if (canPromote && lider && !lider.roles.includes("lider_equipe")) {
         await updateUser(lider.uid, { roles: [...lider.roles, "lider_equipe"] });
         toast.info(`${lider.name} recebeu o cargo Líder de Equipe automaticamente`);
       }

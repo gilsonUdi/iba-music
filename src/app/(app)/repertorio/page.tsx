@@ -160,6 +160,7 @@ export default function RepertorioPage() {
 
   async function handleSave() {
     if (!form.titulo || !form.artista) { toast.error("Título e artista são obrigatórios"); return; }
+    if (!user?.igrejaId && !isPastor) { toast.error("Seu usuário não está vinculado a uma igreja. Contate o pastor."); return; }
     setSaving(true);
     try {
       // Pastor cria aprovada; lider_equipe cria pendente

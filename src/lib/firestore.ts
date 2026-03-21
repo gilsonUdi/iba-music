@@ -310,7 +310,11 @@ export async function setRepertorioEquipe(
 export async function getNotificacoes(igrejaId?: string): Promise<Notificacao[]> {
   const q = query(collection(db, "notificacoes"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
-  const all = snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Notificacao));
+  const limite = new Date();
+  limite.setDate(limite.getDate() - 10); // visível por 10 dias
+  const all = snap.docs
+    .map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Notificacao))
+    .filter(n => n.createdAt >= limite);
   return byIgreja(all, igrejaId);
 }
 

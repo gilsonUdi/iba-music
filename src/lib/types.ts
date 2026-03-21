@@ -113,6 +113,15 @@ export interface Escala {
 export type TomMusical = "C" | "C#" | "D" | "D#" | "E" | "F" | "F#" | "G" | "G#" | "A" | "A#" | "B";
 export type MusicaStatus = "pendente" | "aprovada" | "rejeitada";
 
+export interface MusicaVoto {
+  pastorUid: string;
+  pastorName: string;
+  igrejaId?: string;
+  pontuacao: number;    // 1–5 estrelas
+  comentario?: string;
+  votadoEm: Date;
+}
+
 export interface Musica {
   id: string;
   titulo: string;
@@ -130,6 +139,8 @@ export interface Musica {
   aprovacaoComentario?: string;   // comentário do pastor
   aprovadoPor?: string;           // uid do pastor
   aprovadoEm?: Date;
+  votos?: Record<string, MusicaVoto>;   // pastorUid → voto
+  mediaVotos?: number;                   // calculado ao fechar votação
   createdBy: string;
   createdAt: Date;
 }
@@ -204,4 +215,15 @@ export interface PrestacaoControle {
   totalMusicos: number;
   prazo: string;          // ISO date (sempre dia 15)
   aberto: boolean;
+}
+
+// ── REPERTÓRIO DA EQUIPE ──────────────────────────────────────────────────────
+export interface RepertorioEquipe {
+  id: string;          // equipeId (um por equipe)
+  equipeId: string;
+  equipeName?: string;
+  igrejaId: string;
+  musicaIds: string[]; // IDs de músicas aprovadas selecionadas
+  updatedAt: Date;
+  createdAt: Date;
 }

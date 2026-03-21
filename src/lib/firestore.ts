@@ -181,6 +181,15 @@ export async function deleteEscala(id: string) {
 }
 
 // ── MÚSICAS ────────────────────────────────────────────────────────────────────
+function mapVotos(raw: Record<string, unknown>): Record<string, import("./types").MusicaVoto> {
+  const result: Record<string, import("./types").MusicaVoto> = {};
+  for (const [uid, v] of Object.entries(raw)) {
+    const voto = v as Record<string, unknown>;
+    result[uid] = { ...voto, votadoEm: toDate(voto.votadoEm) } as import("./types").MusicaVoto;
+  }
+  return result;
+}
+
 function mapMusica(d: { data(): Record<string, unknown>; id: string }): Musica {
   const data = d.data();
   return {
@@ -188,6 +197,7 @@ function mapMusica(d: { data(): Record<string, unknown>; id: string }): Musica {
     id: d.id,
     createdAt: toDate(data.createdAt),
     aprovadoEm: data.aprovadoEm ? toDate(data.aprovadoEm) : undefined,
+    votos: data.votos ? mapVotos(data.votos as Record<string, unknown>) : undefined,
   } as Musica;
 }
 
@@ -200,12 +210,11 @@ export async function getMusicas(igrejaId?: string): Promise<Musica[]> {
   return byIgreja(aprovadas, igrejaId);
 }
 
-/** Retorna músicas pendentes de aprovação (para pastores). */
-export async function getMusicasPendentes(igrejaId?: string): Promise<Musica[]> {
+/** Retorna músicas pendentes de aprovação (todos os pastores votam em todas). */
+export async function getMusicasPendentes(): Promise<Musica[]> {
   const q = query(collection(db, "musicas"), where("status", "==", "pendente"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
-  const all = snap.docs.map(mapMusica);
-  return byIgreja(all, igrejaId);
+  return snap.docs.map(mapMusica);
 }
 
 /** Retorna todas as músicas criadas por um usuário (qualquer status). */
@@ -226,6 +235,75 @@ export async function updateMusica(id: string, data: Partial<Musica>) {
 
 export async function deleteMusica(id: string) {
   await deleteDoc(doc(db, "musicas", id));
+}
+
+/** Retorna todos os pastores ativos de todas as igrejas. */
+export async function getAllPastores(): Promise<AppUser[]> {
+  const snap = await getDocs(collection(db, "users"));
+  return snap.docs
+    .map(d => ({
+      ...d.data(),
+      uid: d.id,
+      roles: normalizeRoles(d.data() as Record<string, unknown>),
+      createdAt: toDate(d.data().createdAt),
+    } as AppUser))
+    .filter(u => u.ativo && u.roles.includes("pastor"));
+}
+
+/** Registra o voto de um pastor em uma música e auto-aprova quando todos votaram. */
+export async function votarMusica(
+  musicaId: string,
+  pastor: { uid: string; name: string; igrejaId?: string },
+  pontuacao: number,
+  comentario: string
+): Promise<void> {
+  await updateDoc(doc(db, "musicas", musicaId), {
+    [`votos.${pastor.uid}`]: clean({
+      pastorUid: pastor.uid,
+      pastorName: pastor.name,
+      igrejaId: pastor.igrejaId,
+      pontuacao,
+      comentario: comentario || undefined,
+      votadoEm: serverTimestamp(),
+    }),
+  });
+
+  const [musicaSnap, pastores] = await Promise.all([
+    getDoc(doc(db, "musicas", musicaId)),
+    getAllPastores(),
+  ]);
+
+  const votos = (musicaSnap.data()?.votos ?? {}) as Record<string, { pontuacao: number }>;
+  const todosVotaram = pastores.length > 0 && pastores.every(p => votos[p.uid]);
+
+  if (todosVotaram) {
+    const valores = Object.values(votos);
+    const media = valores.reduce((s, v) => s + v.pontuacao, 0) / valores.length;
+    const status: import("./types").MusicaStatus = media >= 3.5 ? "aprovada" : "rejeitada";
+    await updateDoc(doc(db, "musicas", musicaId), { status, mediaVotos: media });
+  }
+}
+
+/** Retorna os IDs das músicas do repertório de uma equipe. */
+export async function getRepertorioEquipe(equipeId: string): Promise<string[]> {
+  const snap = await getDoc(doc(db, "repertorios_equipe", equipeId));
+  return snap.exists() ? (snap.data().musicaIds ?? []) : [];
+}
+
+/** Salva o repertório de uma equipe. */
+export async function setRepertorioEquipe(
+  equipeId: string,
+  equipeName: string,
+  igrejaId: string,
+  musicaIds: string[]
+): Promise<void> {
+  await setDoc(doc(db, "repertorios_equipe", equipeId), {
+    equipeId,
+    equipeName,
+    igrejaId,
+    musicaIds,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 // ── NOTIFICAÇÕES ───────────────────────────────────────────────────────────────

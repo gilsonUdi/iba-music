@@ -76,7 +76,14 @@ service cloud.firestore {
     match /musicas/{musicaId} {
       allow read:                   if isMembro() && sameIgreja(resource.data);
       allow create:                 if isLiderEquipe() && sameIgrejaNew();
-      allow update, delete:         if isLiderEquipe() && sameIgreja(resource.data);
+      allow update:                 if (isLiderEquipe() && sameIgreja(resource.data)) || isPastor();
+      allow delete:                 if isLiderEquipe() && sameIgreja(resource.data);
+    }
+
+    // ───── Repertório da Equipe ───────────────────────────────────
+    match /repertorios_equipe/{equipeId} {
+      allow read:           if isMembro();
+      allow write:          if isLiderEquipe() || isPastor();
     }
 
     // ───── Notificações ───────────────────────────────────────────

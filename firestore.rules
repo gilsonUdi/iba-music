@@ -57,8 +57,8 @@ service cloud.firestore {
         || resource.data.get("roles", []).hasAny(["pastor", "diretor_musical"])
         || resource.data.get("role", "") in ["pastor", "diretor_musical"]
       );
-      // Pastor e Diretor cadastram membros; igrejaId do novo doc deve ser o mesmo
-      allow create: if isDiretor() && sameIgrejaNew();
+      // Pastor, Diretor e Líder de Equipe cadastram membros; igrejaId do novo doc deve ser o mesmo
+      allow create: if isLiderEquipe() && sameIgrejaNew();
       // Pastor/Diretor atualizam membros; membro atualiza o próprio perfil
       allow update: if (isDiretor() && sameIgreja(resource.data)) || uid() == userId;
       allow delete: if isPastor() && sameIgreja(resource.data);

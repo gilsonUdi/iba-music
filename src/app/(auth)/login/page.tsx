@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "@/lib/auth";
+import { getUser } from "@/lib/firestore";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -26,10 +27,10 @@ export default function LoginPage() {
 
   async function onSubmit(data: FormData) {
     try {
-      await signIn(data.email, data.password);
-      // Força reload completo para garantir que o Firebase Auth inicialize
-      // corretamente na nova página e evitar race condition no primeiro login.
-      window.location.replace("/dashboard");
+      const cred = await signIn(data.email, data.password);
+      const appUser = await getUser(cred.uid);
+      const dest = appUser?.senhaTemporaria ? "/alterar-senha" : "/dashboard";
+      window.location.replace(dest);
     } catch {
       toast.error("E-mail ou senha incorretos");
     }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { updatePassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { updateUser } from "@/lib/firestore";
@@ -11,7 +10,6 @@ import { KeyRound, Eye, EyeOff } from "lucide-react";
 
 export default function AlterarSenhaPage() {
   const { user } = useAuth();
-  const router = useRouter();
 
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmar, setConfirmar] = useState("");
@@ -39,7 +37,7 @@ export default function AlterarSenhaPage() {
       await updatePassword(fbUser, novaSenha);
       await updateUser(user.uid, { senhaTemporaria: false });
       toast.success("Senha alterada com sucesso!");
-      router.replace("/dashboard");
+      window.location.replace("/dashboard");
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       if (code === "auth/requires-recent-login") {

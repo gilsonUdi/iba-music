@@ -6,7 +6,8 @@ import {
   getAllPrestacaoPerguntas, createPrestacaoPergunta,
   updatePrestacaoPergunta, deletePrestacaoPergunta,
 } from "@/lib/firestore";
-import type { PrestacaoPergunta, TipoPergunta, OpcaoPergunta } from "@/lib/types";
+import type { PrestacaoPergunta, TipoPergunta, OpcaoPergunta, PublicoAlvoPergunta } from "@/lib/types";
+import { PUBLICO_ALVO_LABELS } from "@/lib/types";
 import { toast } from "sonner";
 import {
   ClipboardCheck, Plus, X, Pencil, Trash2, GripVertical,
@@ -34,6 +35,7 @@ export default function PerguntasPage() {
   const [texto, setTexto] = useState("");
   const [tipo, setTipo] = useState<TipoPergunta>("texto");
   const [obrigatoria, setObrigatoria] = useState(true);
+  const [publicoAlvo, setPublicoAlvo] = useState<PublicoAlvoPergunta>("todos");
   const [opcoes, setOpcoes] = useState<OpcaoPergunta[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -50,13 +52,14 @@ export default function PerguntasPage() {
 
   function openNew() {
     setEditingPergunta(null);
-    setTexto(""); setTipo("texto"); setObrigatoria(true); setOpcoes([]);
+    setTexto(""); setTipo("texto"); setObrigatoria(true); setPublicoAlvo("todos"); setOpcoes([]);
     setShowModal(true);
   }
 
   function openEdit(p: PrestacaoPergunta) {
     setEditingPergunta(p);
     setTexto(p.texto); setTipo(p.tipo); setObrigatoria(p.obrigatoria);
+    setPublicoAlvo(p.publicoAlvo ?? "todos");
     setOpcoes(p.opcoes ?? []);
     setShowModal(true);
   }
@@ -70,11 +73,11 @@ export default function PerguntasPage() {
     setSaving(true);
     try {
       if (editingPergunta) {
-        await updatePrestacaoPergunta(editingPergunta.id, { texto, tipo, obrigatoria, opcoes: tipo === "multipla_escolha" ? opcoes : [] });
+        await updatePrestacaoPergunta(editingPergunta.id, { texto, tipo, obrigatoria, publicoAlvo, opcoes: tipo === "multipla_escolha" ? opcoes : [] });
         toast.success("Pergunta atualizada!");
       } else {
         await createPrestacaoPergunta({
-          texto, tipo, obrigatoria, opcoes: tipo === "multipla_escolha" ? opcoes : [],
+          texto, tipo, obrigatoria, publicoAlvo, opcoes: tipo === "multipla_escolha" ? opcoes : [],
           ordem: perguntas.length + 1, ativa: true, createdBy: user!.uid,
         });
         toast.success("Pergunta criada!");
@@ -153,6 +156,8 @@ export default function PerguntasPage() {
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="badge bg-gray-100 text-gray-600">{TIPO_LABELS[p.tipo]}</span>
                     {p.obrigatoria && <span className="badge bg-red-100 text-red-600">Obrigatória</span>}
+                    {(p.publicoAlvo === "casados") && <span className="badge bg-rose-100 text-rose-600">Apenas casados</span>}
+                    {(p.publicoAlvo === "solteiros") && <span className="badge bg-sky-100 text-sky-600">Apenas solteiros</span>}
                     {!p.ativa && <span className="badge bg-gray-100 text-gray-400">Inativa</span>}
                   </div>
                   <p className="font-medium text-gray-900">{p.texto}</p>
@@ -206,6 +211,15 @@ export default function PerguntasPage() {
                 <label className="label">Tipo de resposta</label>
                 <select value={tipo} onChange={e => { setTipo(e.target.value as TipoPergunta); setOpcoes([]); }} className="input">
                   {Object.entries(TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Público alvo</label>
+                <select value={publicoAlvo} onChange={e => setPublicoAlvo(e.target.value as PublicoAlvoPergunta)} className="input">
+                  {(Object.entries(PUBLICO_ALVO_LABELS) as [PublicoAlvoPergunta, string][]).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
                 </select>
               </div>
 

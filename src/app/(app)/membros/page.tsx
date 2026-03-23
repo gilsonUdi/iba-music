@@ -6,8 +6,8 @@ import { getAllUsers, updateUser, getEquipes, updateEquipe } from "@/lib/firesto
 import type { Equipe } from "@/lib/types";
 import { registerUser } from "@/lib/auth";
 import {
-  INSTRUMENTO_LABELS, ROLE_LABELS, primaryRoleLabel,
-  type AppUser, type Instrumento, type UserRole,
+  INSTRUMENTO_LABELS, ROLE_LABELS, ESTADO_CIVIL_LABELS, primaryRoleLabel,
+  type AppUser, type Instrumento, type UserRole, type EstadoCivil,
 } from "@/lib/types";
 import { toast } from "sonner";
 import {
@@ -37,12 +37,14 @@ interface FormData {
   instrumentoPrincipal: Instrumento | "";
   liderUid: string;
   telefone: string;
+  estadoCivil: EstadoCivil | "";
 }
 
 const EMPTY: FormData = {
   name: "", email: "", password: "",
   roles: ["musico"],
   instrumentos: [], instrumentoPrincipal: "", liderUid: "", telefone: "",
+  estadoCivil: "",
 };
 
 export default function MembrosPage() {
@@ -94,6 +96,7 @@ export default function MembrosPage() {
       instrumentoPrincipal: u.instrumentoPrincipal ?? u.instrumento ?? "",
       liderUid: u.liderUid ?? "",
       telefone: u.telefone ?? "",
+      estadoCivil: u.estadoCivil ?? "",
     });
     setShowModal(true);
   }
@@ -135,6 +138,7 @@ export default function MembrosPage() {
         instrumentos: form.instrumentos.length > 0 ? form.instrumentos : undefined,
         instrumentoPrincipal: principal,
         telefone: form.telefone || undefined,
+        estadoCivil: form.estadoCivil || undefined,
       };
       if (editingUser) {
         await updateUser(editingUser.uid, {
@@ -427,6 +431,21 @@ export default function MembrosPage() {
                   className="input"
                   placeholder="(11) 99999-9999"
                 />
+              </div>
+
+              {/* Estado Civil */}
+              <div>
+                <label className="label">Estado Civil</label>
+                <select
+                  value={form.estadoCivil}
+                  onChange={e => setForm(f => ({ ...f, estadoCivil: e.target.value as EstadoCivil | "" }))}
+                  className="input"
+                >
+                  <option value="">Não informado</option>
+                  {(Object.entries(ESTADO_CIVIL_LABELS) as [EstadoCivil, string][]).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Cargos (multi-select checkboxes) */}

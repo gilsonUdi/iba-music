@@ -44,7 +44,16 @@ export default function PrestacaoPage() {
         getPrestacaoResposta(user!.uid, mes),
         getMinhasRespostas(user!.uid),
       ]);
-      setPerguntas(perg);
+      // Filtra perguntas por estado civil
+      const estadoCivil = user!.estadoCivil;
+      const isCasado = estadoCivil === "casado";
+      const filtered = perg.filter(p => {
+        if (!p.publicoAlvo || p.publicoAlvo === "todos") return true;
+        if (p.publicoAlvo === "casados") return isCasado;
+        if (p.publicoAlvo === "solteiros") return !isCasado;
+        return true;
+      });
+      setPerguntas(filtered);
       setRespostaExistente(resp);
       setHistorico(hist);
       setLoading(false);

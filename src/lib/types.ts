@@ -64,6 +64,15 @@ export const INSTRUMENTO_LABELS: Record<Instrumento, string> = {
 };
 
 // ── USERS ─────────────────────────────────────────────────────────────────────
+export type EstadoCivil = "solteiro" | "casado" | "divorciado" | "viuvo";
+
+export const ESTADO_CIVIL_LABELS: Record<EstadoCivil, string> = {
+  solteiro:   "Solteiro(a)",
+  casado:     "Casado(a)",
+  divorciado: "Divorciado(a)",
+  viuvo:      "Viúvo(a)",
+};
+
 export interface AppUser {
   uid: string;
   email: string;
@@ -75,6 +84,7 @@ export interface AppUser {
   instrumentoPrincipal?: Instrumento;   // instrumento principal (exibição / escalas)
   liderUid?: string;         // UID do líder de célula (para músicos)
   telefone?: string;
+  estadoCivil?: EstadoCivil;
   senhaTemporaria?: boolean; // true quando o admin cria o usuário — força troca de senha no 1º login
   ativo: boolean;
   createdAt: Date;
@@ -188,12 +198,21 @@ export interface OpcaoPergunta {
   label: string;
 }
 
+export type PublicoAlvoPergunta = "todos" | "casados" | "solteiros";
+
+export const PUBLICO_ALVO_LABELS: Record<PublicoAlvoPergunta, string> = {
+  todos:    "Para todos",
+  casados:  "Apenas casados",
+  solteiros: "Apenas solteiros",
+};
+
 export interface PrestacaoPergunta {
   id: string;
   texto: string;
   tipo: TipoPergunta;
   opcoes?: OpcaoPergunta[];
   obrigatoria: boolean;
+  publicoAlvo?: PublicoAlvoPergunta; // undefined = "todos" (retrocompat)
   ordem: number;
   ativa: boolean;
   createdBy: string;

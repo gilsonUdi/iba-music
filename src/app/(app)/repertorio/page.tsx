@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/firestore";
 import { formatarDuracao, type Musica, type MusicaStatus, type Equipe } from "@/lib/types";
 import { toast } from "sonner";
+import Sheet from "@/components/ui/Sheet";
 import { mensagemErro } from "@/lib/errors";
 import {
   Library, Plus, Search, X, Music2, Clock,
@@ -673,7 +675,7 @@ export default function RepertorioPage() {
       )}
 
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista grade />
       ) : (
         <>
           {/* ── Lista Geral ─────────────────────────────────────────────────── */}
@@ -811,30 +813,28 @@ export default function RepertorioPage() {
 
       {/* Modal cadastro */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-              <div>
-                <h2 className="font-bold text-gray-900 text-lg">{vaiAprovado ? "Nova Música" : "Submeter Música para Votação"}</h2>
-                {!vaiAprovado && (
-                  <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
-                    <AlertCircle size={12} /> Todos os pastores precisam votar antes de entrar no repertório
-                  </p>
-                )}
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600" aria-label="Fechar"><X size={20} /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <MusicaCampos form={form} setForm={setForm} />
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
-                  {saving ? "Salvando..." : vaiAprovado ? "Adicionar" : "Enviar para votação"}
-                </button>
-              </div>
-            </div>
+        <Sheet aberto onFechar={() => setShowModal(false)} className="sm:max-w-2xl">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="font-bold text-gray-900 text-lg">{vaiAprovado ? "Nova Música" : "Submeter Música para Votação"}</h2>
+            {!vaiAprovado && (
+              <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                <AlertCircle size={12} /> Todos os pastores precisam votar antes de entrar no repertório
+              </p>
+            )}
+          </div>
+          <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600" aria-label="Fechar"><X size={20} /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <MusicaCampos form={form} setForm={setForm} />
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
+              {saving ? "Salvando..." : vaiAprovado ? "Adicionar" : "Enviar para votação"}
+            </button>
           </div>
         </div>
+        </Sheet>
       )}
     </div>
   );

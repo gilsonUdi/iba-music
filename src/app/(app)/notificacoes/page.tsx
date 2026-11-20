@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
 import { getNotificacoes, createNotificacao, marcarNotificacaoLida, getAllUsers } from "@/lib/firestore";
 import type { Notificacao, NotificacaoTipo, AppUser } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import Sheet from "@/components/ui/Sheet";
 import { mensagemErro } from "@/lib/errors";
 import { Bell, Plus, X, CheckCheck, AlertTriangle, Info, Calendar, Users } from "lucide-react";
 import clsx from "clsx";
@@ -103,7 +105,7 @@ export default function NotificacoesPage() {
       </div>
 
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista />
       ) : minhasNotifs.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <Bell size={40} className="mx-auto mb-3 opacity-40" />
@@ -154,70 +156,68 @@ export default function NotificacoesPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">Enviar Notificação</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        <Sheet aberto onFechar={() => setShowModal(false)} className="sm:max-w-lg">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg">Enviar Notificação</h2>
+          <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="label">Tipo</label>
+            <select value={tipo} onChange={e => setTipo(e.target.value as NotificacaoTipo)} className="input">
+              {Object.entries(TIPO_CONFIG).map(([v, c]) => (
+                <option key={v} value={v}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Título</label>
+            <input value={titulo} onChange={e => setTitulo(e.target.value)} className="input" placeholder="Ex: Ensaio desta sexta" />
+          </div>
+          <div>
+            <label className="label">Mensagem</label>
+            <textarea value={mensagem} onChange={e => setMensagem(e.target.value)} className="input resize-none" rows={4} placeholder="Detalhes da notificação..." />
+          </div>
+          <div>
+            <label className="label">Destinatários</label>
+            <select
+              value={typeof destinatarios === "string" ? "todos" : "selecionados"}
+              onChange={e => setDestinatarios(e.target.value === "todos" ? "todos" : [])}
+              className="input"
+            >
+              <option value="todos">Todos os membros</option>
+              <option value="selecionados">Membros selecionados</option>
+            </select>
+          </div>
+          {Array.isArray(destinatarios) && (
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {users.map(u => (
+                <label key={u.uid} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={destinatarios.includes(u.uid)}
+                    onChange={e => {
+                      setDestinatarios(prev =>
+                        Array.isArray(prev)
+                          ? e.target.checked ? [...prev, u.uid] : prev.filter(x => x !== u.uid)
+                          : [u.uid]
+                      );
+                    }}
+                    className="w-4 h-4 accent-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">{u.name}</span>
+                </label>
+              ))}
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="label">Tipo</label>
-                <select value={tipo} onChange={e => setTipo(e.target.value as NotificacaoTipo)} className="input">
-                  {Object.entries(TIPO_CONFIG).map(([v, c]) => (
-                    <option key={v} value={v}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label">Título</label>
-                <input value={titulo} onChange={e => setTitulo(e.target.value)} className="input" placeholder="Ex: Ensaio desta sexta" />
-              </div>
-              <div>
-                <label className="label">Mensagem</label>
-                <textarea value={mensagem} onChange={e => setMensagem(e.target.value)} className="input resize-none" rows={4} placeholder="Detalhes da notificação..." />
-              </div>
-              <div>
-                <label className="label">Destinatários</label>
-                <select
-                  value={typeof destinatarios === "string" ? "todos" : "selecionados"}
-                  onChange={e => setDestinatarios(e.target.value === "todos" ? "todos" : [])}
-                  className="input"
-                >
-                  <option value="todos">Todos os membros</option>
-                  <option value="selecionados">Membros selecionados</option>
-                </select>
-              </div>
-              {Array.isArray(destinatarios) && (
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {users.map(u => (
-                    <label key={u.uid} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={destinatarios.includes(u.uid)}
-                        onChange={e => {
-                          setDestinatarios(prev =>
-                            Array.isArray(prev)
-                              ? e.target.checked ? [...prev, u.uid] : prev.filter(x => x !== u.uid)
-                              : [u.uid]
-                          );
-                        }}
-                        className="w-4 h-4 accent-primary-500"
-                      />
-                      <span className="text-sm text-gray-700">{u.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={handleCreate} disabled={saving} className="btn-primary flex-1">
-                  {saving ? "Enviando..." : "Enviar"}
-                </button>
-              </div>
-            </div>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleCreate} disabled={saving} className="btn-primary flex-1">
+              {saving ? "Enviando..." : "Enviar"}
+            </button>
           </div>
         </div>
+        </Sheet>
       )}
     </div>
   );

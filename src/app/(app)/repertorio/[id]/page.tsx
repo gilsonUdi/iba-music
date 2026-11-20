@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EsqueletoPagina } from "@/components/ui/Esqueleto";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -194,9 +195,7 @@ export default function RepertorioDetalhePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
+      <EsqueletoPagina />
     );
   }
 
@@ -352,7 +351,7 @@ export default function RepertorioDetalhePage() {
           {/* Abas */}
           <div className="flex gap-2 flex-wrap">
             <BotaoAba ativo={aba === "youtube"} tem={!!videoId} cor="bg-red-500" onClick={() => setAba("youtube")}><Youtube size={14} /> YouTube</BotaoAba>
-            <BotaoAba ativo={aba === "ouvir"} tem={!!spotifyId || !!deezerId} cor="bg-green-600" onClick={() => setAba("ouvir")}><Disc3 size={14} /> Ouvir</BotaoAba>
+            <BotaoAba ativo={aba === "ouvir"} tem={!!spotifyId || !!deezerId} cor="bg-green-500" onClick={() => setAba("ouvir")}><Disc3 size={14} /> Ouvir</BotaoAba>
             <BotaoAba ativo={aba === "cifra"} tem={fontesCifra.length > 0} cor="bg-primary-500" onClick={() => setAba("cifra")}><FileText size={14} /> Cifra</BotaoAba>
             <BotaoAba ativo={aba === "letra"} tem={!!musica.letra} cor="bg-purple-500" onClick={() => setAba("letra")}><Music2 size={14} /> Letra</BotaoAba>
             <BotaoAba ativo={aba === "vs"} tem={fontesVS.length > 0} cor="bg-green-500" onClick={() => setAba("vs")}><Headphones size={14} /> VS</BotaoAba>

@@ -41,19 +41,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-700 via-primary-600 to-indigo-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-[100dvh] flex items-center justify-center p-4 overflow-hidden">
+      {/* luzes de palco */}
+      <div className="pointer-events-none absolute -top-32 -left-24 w-[28rem] h-[28rem] rounded-full bg-violet-600/40 blur-[100px] animate-pulse" />
+      <div className="pointer-events-none absolute -bottom-40 -right-24 w-[30rem] h-[30rem] rounded-full bg-fuchsia-600/30 blur-[110px]" />
+      <div className="relative w-full max-w-md animate-fade-up">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 mb-4">
-            <Image src="/logo.png" alt="IBA Music" width={80} height={80} className="rounded-full object-cover" />
+          <div className="inline-flex items-center justify-center w-20 h-20 mb-4 rounded-full ring-4 ring-primary-500/30 animate-pulse-glow">
+            <Image src="/logo.png" alt="IBA Music" width={80} height={80} className="rounded-full object-cover" priority />
           </div>
-          <h1 className="text-3xl font-bold text-white">IBA Music</h1>
-          <p className="text-indigo-200 mt-1">Faça login para continuar</p>
+          <h1 className="text-4xl font-bold texto-neon">IBA Music</h1>
+          <p className="text-gray-500 mt-2">Ministério de louvor · faça login para continuar</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
+        <div className="card rounded-3xl p-7 sm:p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <label className="label">E-mail</label>
@@ -101,7 +104,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-indigo-300 text-sm mt-6">
+        <p className="text-center text-gray-400 text-sm mt-6">
           Não tem acesso? Fale com o seu pastor.
         </p>
       </div>

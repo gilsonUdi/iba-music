@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EsqueletoPagina } from "@/components/ui/Esqueleto";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Printer } from "lucide-react";
@@ -32,9 +33,7 @@ export default function ImprimirEscalaPage() {
 
   if (!escala) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
+      <EsqueletoPagina />
     );
   }
 
@@ -53,7 +52,7 @@ export default function ImprimirEscalaPage() {
         <p className="text-xs text-gray-400 hidden sm:block">Para PDF, escolha “Salvar como PDF” como impressora.</p>
       </div>
 
-      <article className="bg-white rounded-2xl p-6 sm:p-8 print:p-0 print:rounded-none text-gray-900 space-y-6">
+      <article className="tema-claro bg-white rounded-2xl p-6 sm:p-8 print:p-0 print:rounded-none text-gray-900 space-y-6">
         <header className="border-b border-gray-200 pb-4">
           <p className="text-xs uppercase tracking-widest text-gray-500">IBA Music · Escala</p>
           <h1 className="text-2xl font-bold mt-1 capitalize">{tituloEscala(escala)}</h1>

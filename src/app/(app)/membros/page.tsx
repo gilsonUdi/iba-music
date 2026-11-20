@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
 import { getAllUsers, updateUser, getEquipes, updateEquipe } from "@/lib/firestore";
 import type { Equipe } from "@/lib/types";
@@ -10,6 +11,7 @@ import {
   type AppUser, type Instrumento, type UserRole, type EstadoCivil,
 } from "@/lib/types";
 import { toast } from "sonner";
+import Sheet from "@/components/ui/Sheet";
 import { mensagemErro } from "@/lib/errors";
 import {
   Users, Users2, Plus, Search, Pencil, ToggleLeft, ToggleRight, X, Mail, Phone, UserCheck, Star,
@@ -268,7 +270,7 @@ export default function MembrosPage() {
       {/* Tabela */}
       <div className="card overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-400">Carregando...</div>
+          <div className="p-3"><EsqueletoLista itens={5} /></div>
         ) : filtered.length === 0 ? (
           <div className="p-8 text-center text-gray-400">Nenhum membro encontrado</div>
         ) : (
@@ -373,197 +375,195 @@ export default function MembrosPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">
-                {editingUser ? "Editar Membro" : "Novo Membro"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Aviso lider de equipe */}
-              {isLiderEquipe && minhaEquipe && !editingUser && (
-                <div className="bg-primary-50 border border-primary-100 rounded-2xl px-4 py-3 text-sm text-primary-700 flex items-center gap-2">
-                  <Users2 size={15} className="shrink-0" />
-                  Este membro será adicionado automaticamente à <strong>{minhaEquipe.name}</strong>
-                </div>
-              )}
-              {/* Nome */}
-              <div>
-                <label className="label">Nome completo</label>
-                <input
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="input"
-                  placeholder="João da Silva"
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="label">E-mail</label>
-                <input
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  type="email"
-                  className="input"
-                  disabled={!!editingUser}
-                  placeholder="joao@email.com"
-                />
-              </div>
-
-              {/* Senha (apenas novo) */}
-              {!editingUser && (
-                <div>
-                  <label className="label">Senha</label>
-                  <input
-                    value={form.password}
-                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    type="password"
-                    className="input"
-                    placeholder="Mínimo 6 caracteres"
-                  />
-                </div>
-              )}
-
-              {/* Telefone */}
-              <div>
-                <label className="label">Telefone</label>
-                <input
-                  value={form.telefone}
-                  onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))}
-                  className="input"
-                  placeholder="(11) 99999-9999"
-                />
-              </div>
-
-              {/* Estado Civil */}
-              <div>
-                <label className="label">Estado Civil</label>
-                <select
-                  value={form.estadoCivil}
-                  onChange={e => setForm(f => ({ ...f, estadoCivil: e.target.value as EstadoCivil | "" }))}
-                  className="input"
-                >
-                  <option value="">Não informado</option>
-                  {(Object.entries(ESTADO_CIVIL_LABELS) as [EstadoCivil, string][]).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Cargos (multi-select checkboxes) */}
-              <div>
-                <label className="label">Cargos</label>
-                <p className="text-xs text-gray-400 mb-2">Uma pessoa pode acumular mais de um cargo</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {rolesDisponiveis.map(role => (
-                    <label
-                      key={role}
-                      className={clsx(
-                        "flex items-center gap-2.5 p-3 rounded-2xl border cursor-pointer transition-all select-none",
-                        form.roles.includes(role)
-                          ? "border-primary-300 bg-primary-50"
-                          : "border-gray-100 bg-gray-50 hover:border-gray-200"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.roles.includes(role)}
-                        onChange={() => toggleRole(role)}
-                        className="accent-primary-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">{ROLE_LABELS[role]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Instrumentos (se músico) */}
-              {showsInstrumento && (
-                <div>
-                  <label className="label">Instrumentos</label>
-                  <p className="text-xs text-gray-400 mb-2">Selecione todos que toca. Clique em ★ para definir o principal.</p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(Object.entries(INSTRUMENTO_LABELS) as [Instrumento, string][]).map(([v, l]) => {
-                      const sel = form.instrumentos.includes(v);
-                      const isPrincipal = form.instrumentoPrincipal === v;
-                      return (
-                        <div
-                          key={v}
-                          className={clsx(
-                            "flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all select-none",
-                            sel ? "border-primary-300 bg-primary-50" : "border-gray-100 bg-gray-50 hover:border-gray-200"
-                          )}
-                          onClick={() => toggleInstrumento(v)}
-                        >
-                          <input type="checkbox" readOnly checked={sel} className="accent-primary-500 w-4 h-4 pointer-events-none" />
-                          <span className="text-sm text-gray-700 flex-1">{l}</span>
-                          {sel && (
-                            <button
-                              type="button"
-                              onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, instrumentoPrincipal: v })); }}
-                              title="Definir como principal"
-                              className={clsx("transition-colors", isPrincipal ? "text-amber-500" : "text-gray-300 hover:text-amber-400")}
-                            >
-                              <Star size={13} fill={isPrincipal ? "currentColor" : "none"} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {form.instrumentos.length > 1 && !form.instrumentoPrincipal && (
-                    <p className="text-xs text-amber-600 mt-1.5">Clique em ★ para definir o instrumento principal</p>
-                  )}
-                  {form.instrumentoPrincipal && (
-                    <p className="text-xs text-primary-600 mt-1.5">Principal: {INSTRUMENTO_LABELS[form.instrumentoPrincipal as Instrumento]}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Líder de Célula (se músico) */}
-              {showsLider && (
-                <div>
-                  <label className="label">Líder de Célula</label>
-                  <select
-                    value={form.liderUid}
-                    onChange={e => setForm(f => ({ ...f, liderUid: e.target.value }))}
-                    className="input"
-                  >
-                    <option value="">Sem líder associado</option>
-                    {lideresCelula.map(l => (
-                      <option key={l.uid} value={l.uid}>{l.name}</option>
-                    ))}
-                  </select>
-                  {lideresCelula.length === 0 && (
-                    <p className="text-xs text-amber-600 mt-1">Nenhum Líder de Célula cadastrado ainda.</p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="btn-secondary flex-1"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn-primary flex-1"
-                >
-                  {saving ? "Salvando..." : editingUser ? "Salvar alterações" : "Cadastrar"}
-                </button>
-              </div>
-            </form>
-          </div>
+        <Sheet aberto onFechar={() => setShowModal(false)} className="sm:max-w-lg">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg">
+            {editingUser ? "Editar Membro" : "Novo Membro"}
+          </h2>
+          <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
         </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Aviso lider de equipe */}
+          {isLiderEquipe && minhaEquipe && !editingUser && (
+            <div className="bg-primary-50 border border-primary-100 rounded-2xl px-4 py-3 text-sm text-primary-700 flex items-center gap-2">
+              <Users2 size={15} className="shrink-0" />
+              Este membro será adicionado automaticamente à <strong>{minhaEquipe.name}</strong>
+            </div>
+          )}
+          {/* Nome */}
+          <div>
+            <label className="label">Nome completo</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              className="input"
+              placeholder="João da Silva"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="label">E-mail</label>
+            <input
+              value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              type="email"
+              className="input"
+              disabled={!!editingUser}
+              placeholder="joao@email.com"
+            />
+          </div>
+
+          {/* Senha (apenas novo) */}
+          {!editingUser && (
+            <div>
+              <label className="label">Senha</label>
+              <input
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                type="password"
+                className="input"
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+          )}
+
+          {/* Telefone */}
+          <div>
+            <label className="label">Telefone</label>
+            <input
+              value={form.telefone}
+              onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))}
+              className="input"
+              placeholder="(11) 99999-9999"
+            />
+          </div>
+
+          {/* Estado Civil */}
+          <div>
+            <label className="label">Estado Civil</label>
+            <select
+              value={form.estadoCivil}
+              onChange={e => setForm(f => ({ ...f, estadoCivil: e.target.value as EstadoCivil | "" }))}
+              className="input"
+            >
+              <option value="">Não informado</option>
+              {(Object.entries(ESTADO_CIVIL_LABELS) as [EstadoCivil, string][]).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Cargos (multi-select checkboxes) */}
+          <div>
+            <label className="label">Cargos</label>
+            <p className="text-xs text-gray-400 mb-2">Uma pessoa pode acumular mais de um cargo</p>
+            <div className="grid grid-cols-2 gap-2">
+              {rolesDisponiveis.map(role => (
+                <label
+                  key={role}
+                  className={clsx(
+                    "flex items-center gap-2.5 p-3 rounded-2xl border cursor-pointer transition-all select-none",
+                    form.roles.includes(role)
+                      ? "border-primary-300 bg-primary-50"
+                      : "border-gray-100 bg-gray-50 hover:border-gray-200"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.roles.includes(role)}
+                    onChange={() => toggleRole(role)}
+                    className="accent-primary-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">{ROLE_LABELS[role]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Instrumentos (se músico) */}
+          {showsInstrumento && (
+            <div>
+              <label className="label">Instrumentos</label>
+              <p className="text-xs text-gray-400 mb-2">Selecione todos que toca. Clique em ★ para definir o principal.</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(Object.entries(INSTRUMENTO_LABELS) as [Instrumento, string][]).map(([v, l]) => {
+                  const sel = form.instrumentos.includes(v);
+                  const isPrincipal = form.instrumentoPrincipal === v;
+                  return (
+                    <div
+                      key={v}
+                      className={clsx(
+                        "flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all select-none",
+                        sel ? "border-primary-300 bg-primary-50" : "border-gray-100 bg-gray-50 hover:border-gray-200"
+                      )}
+                      onClick={() => toggleInstrumento(v)}
+                    >
+                      <input type="checkbox" readOnly checked={sel} className="accent-primary-500 w-4 h-4 pointer-events-none" />
+                      <span className="text-sm text-gray-700 flex-1">{l}</span>
+                      {sel && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, instrumentoPrincipal: v })); }}
+                          title="Definir como principal"
+                          className={clsx("transition-colors", isPrincipal ? "text-amber-500" : "text-gray-300 hover:text-amber-400")}
+                        >
+                          <Star size={13} fill={isPrincipal ? "currentColor" : "none"} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {form.instrumentos.length > 1 && !form.instrumentoPrincipal && (
+                <p className="text-xs text-amber-600 mt-1.5">Clique em ★ para definir o instrumento principal</p>
+              )}
+              {form.instrumentoPrincipal && (
+                <p className="text-xs text-primary-600 mt-1.5">Principal: {INSTRUMENTO_LABELS[form.instrumentoPrincipal as Instrumento]}</p>
+              )}
+            </div>
+          )}
+
+          {/* Líder de Célula (se músico) */}
+          {showsLider && (
+            <div>
+              <label className="label">Líder de Célula</label>
+              <select
+                value={form.liderUid}
+                onChange={e => setForm(f => ({ ...f, liderUid: e.target.value }))}
+                className="input"
+              >
+                <option value="">Sem líder associado</option>
+                {lideresCelula.map(l => (
+                  <option key={l.uid} value={l.uid}>{l.name}</option>
+                ))}
+              </select>
+              {lideresCelula.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">Nenhum Líder de Célula cadastrado ainda.</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              className="btn-secondary flex-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary flex-1"
+            >
+              {saving ? "Salvando..." : editingUser ? "Salvar alterações" : "Cadastrar"}
+            </button>
+          </div>
+        </form>
+        </Sheet>
       )}
     </div>
   );

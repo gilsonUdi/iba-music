@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getAllPrestacaoPerguntas, createPrestacaoPergunta,
@@ -9,6 +10,7 @@ import {
 import type { PrestacaoPergunta, TipoPergunta, OpcaoPergunta, PublicoAlvoPergunta } from "@/lib/types";
 import { PUBLICO_ALVO_LABELS } from "@/lib/types";
 import { toast } from "sonner";
+import Sheet from "@/components/ui/Sheet";
 import {
   ClipboardCheck, Plus, X, Pencil, Trash2, GripVertical,
   ToggleLeft, ToggleRight, ChevronLeft,
@@ -136,7 +138,7 @@ export default function PerguntasPage() {
       </div>
 
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista />
       ) : perguntas.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <ClipboardCheck size={40} className="mx-auto mb-3 opacity-40" />
@@ -188,84 +190,82 @@ export default function PerguntasPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">
-                {editingPergunta ? "Editar Pergunta" : "Nova Pergunta"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="label">Pergunta</label>
-                <textarea
-                  value={texto}
-                  onChange={e => setTexto(e.target.value)}
-                  className="input resize-none"
-                  rows={3}
-                  placeholder="Ex: Como está sua vida devocional este mês?"
-                />
-              </div>
-              <div>
-                <label className="label">Tipo de resposta</label>
-                <select value={tipo} onChange={e => { setTipo(e.target.value as TipoPergunta); setOpcoes([]); }} className="input">
-                  {Object.entries(TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
+        <Sheet aberto onFechar={() => setShowModal(false)} className="sm:max-w-lg">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg">
+            {editingPergunta ? "Editar Pergunta" : "Nova Pergunta"}
+          </h2>
+          <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="label">Pergunta</label>
+            <textarea
+              value={texto}
+              onChange={e => setTexto(e.target.value)}
+              className="input resize-none"
+              rows={3}
+              placeholder="Ex: Como está sua vida devocional este mês?"
+            />
+          </div>
+          <div>
+            <label className="label">Tipo de resposta</label>
+            <select value={tipo} onChange={e => { setTipo(e.target.value as TipoPergunta); setOpcoes([]); }} className="input">
+              {Object.entries(TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
 
-              <div>
-                <label className="label">Público alvo</label>
-                <select value={publicoAlvo} onChange={e => setPublicoAlvo(e.target.value as PublicoAlvoPergunta)} className="input">
-                  {(Object.entries(PUBLICO_ALVO_LABELS) as [PublicoAlvoPergunta, string][]).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </div>
+          <div>
+            <label className="label">Público alvo</label>
+            <select value={publicoAlvo} onChange={e => setPublicoAlvo(e.target.value as PublicoAlvoPergunta)} className="input">
+              {(Object.entries(PUBLICO_ALVO_LABELS) as [PublicoAlvoPergunta, string][]).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
 
-              {tipo === "multipla_escolha" && (
-                <div>
-                  <label className="label">Opções de resposta</label>
-                  <div className="space-y-2">
-                    {opcoes.map(o => (
-                      <div key={o.id} className="flex gap-2">
-                        <input
-                          value={o.label}
-                          onChange={e => updateOpcao(o.id, e.target.value)}
-                          className="input flex-1"
-                          placeholder="Opção..."
-                        />
-                        <button onClick={() => removeOpcao(o.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                    <button onClick={addOpcao} className="text-sm text-primary-500 hover:text-primary-700 flex items-center gap-1">
-                      <Plus size={13} /> Adicionar opção
+          {tipo === "multipla_escolha" && (
+            <div>
+              <label className="label">Opções de resposta</label>
+              <div className="space-y-2">
+                {opcoes.map(o => (
+                  <div key={o.id} className="flex gap-2">
+                    <input
+                      value={o.label}
+                      onChange={e => updateOpcao(o.id, e.target.value)}
+                      className="input flex-1"
+                      placeholder="Opção..."
+                    />
+                    <button onClick={() => removeOpcao(o.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
+                      <X size={14} />
                     </button>
                   </div>
-                </div>
-              )}
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={obrigatoria}
-                  onChange={e => setObrigatoria(e.target.checked)}
-                  className="w-4 h-4 accent-primary-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Resposta obrigatória</span>
-              </label>
-
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
-                  {saving ? "Salvando..." : editingPergunta ? "Salvar" : "Criar"}
+                ))}
+                <button onClick={addOpcao} className="text-sm text-primary-500 hover:text-primary-700 flex items-center gap-1">
+                  <Plus size={13} /> Adicionar opção
                 </button>
               </div>
             </div>
+          )}
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={obrigatoria}
+              onChange={e => setObrigatoria(e.target.checked)}
+              className="w-4 h-4 accent-primary-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Resposta obrigatória</span>
+          </label>
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
+              {saving ? "Salvando..." : editingPergunta ? "Salvar" : "Criar"}
+            </button>
           </div>
         </div>
+        </Sheet>
       )}
     </div>
   );

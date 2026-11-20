@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { corVisivel } from "@/lib/cores";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { getEscalas, createEscala, updateEscala, deleteEscala, getEquipes, getMusicas, confirmarPresenca } from "@/lib/firestore";
@@ -16,6 +18,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import Sheet from "@/components/ui/Sheet";
 import {
   Calendar, Plus, X, Trash2, CheckCircle2, XCircle, Clock, Pencil,
   ChevronDown, ChevronUp, Music2, ListMusic, Users2, ChevronRight, Shirt, ExternalLink, PenLine,
@@ -270,7 +273,7 @@ export default function EscalasPage() {
 
       {/* Lista de escalas */}
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista />
       ) : escalas.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <Calendar size={40} className="mx-auto mb-3 opacity-40" />
@@ -295,10 +298,10 @@ export default function EscalasPage() {
                 >
                   {/* Data */}
                   <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0" style={{ backgroundColor: equipeCor ? `${equipeCor}22` : undefined, border: equipeCor ? `1.5px solid ${equipeCor}44` : undefined }}>
-                    <span className="font-bold text-lg leading-none" style={{ color: equipeCor ?? "#6d28d9" }}>
+                    <span className="font-bold text-lg leading-none" style={{ color: corVisivel(equipeCor) }}>
                       {format(parseISO(escala.data), "dd")}
                     </span>
-                    <span className="text-xs capitalize" style={{ color: equipeCor ?? "#7c3aed" }}>
+                    <span className="text-xs capitalize" style={{ color: corVisivel(equipeCor) }}>
                       {format(parseISO(escala.data), "MMM", { locale: ptBR })}
                     </span>
                   </div>
@@ -548,145 +551,143 @@ export default function EscalasPage() {
 
       {/* ── Modal Nova Escala ─────────────────────────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">Nova Escala</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
+        <Sheet aberto onFechar={() => setShowModal(false)} className="sm:max-w-lg">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg">Nova Escala</h2>
+          <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+
+          {/* Data + Tipo */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Data do culto *</label>
+              <input
+                type="date"
+                value={data}
+                onChange={e => setData(e.target.value)}
+                className="input"
+              />
             </div>
-
-            <div className="p-6 space-y-5">
-
-              {/* Data + Tipo */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Data do culto *</label>
-                  <input
-                    type="date"
-                    value={data}
-                    onChange={e => setData(e.target.value)}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="label">Tipo de culto</label>
-                  <select
-                    value={tipoCulto}
-                    onChange={e => setTipoCulto(e.target.value as TipoCulto)}
-                    className="input"
-                  >
-                    {Object.entries(CULTO_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Equipe */}
-              <div>
-                <label className="label flex items-center gap-1.5">
-                  <Users2 size={14} className="text-primary-500" /> Equipe que vai ministrar
-                </label>
-                <select
-                  value={equipeId}
-                  onChange={e => handleEquipeChange(e.target.value)}
-                  className="input"
-                >
-                  <option value="">Selecione a equipe...</option>
-                  {equipes.map(e => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
-                {equipeId && (
-                  <p className="text-xs text-primary-600 mt-1.5 flex items-center gap-1">
-                    <CheckCircle2 size={11} />
-                    Músicos da equipe carregados automaticamente
-                  </p>
-                )}
-              </div>
-
-              {/* Músicos */}
-              <div>
-                <label className="label flex items-center gap-1.5">
-                  <Music2 size={14} className="text-primary-500" /> Músicos escalados *
-                </label>
-                {musicosDisponiveis.length === 0 ? (
-                  <p className="text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl p-4 text-center">
-                    {equipeId ? "Nenhum músico cadastrado nesta equipe" : "Selecione uma equipe ou aguarde o carregamento"}
-                  </p>
-                ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto border border-gray-100 rounded-2xl p-2">
-                    {musicosDisponiveis.map(m => {
-                      const sel = selectedMusicos.some(x => x.uid === m.uid);
-                      return (
-                        <label
-                          key={m.uid}
-                          className={clsx(
-                            "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors",
-                            sel ? "bg-primary-50" : "hover:bg-gray-50"
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={sel}
-                            onChange={() => toggleMusico(m)}
-                            className="w-4 h-4 accent-primary-500"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800">{m.name}</p>
-                            <p className="text-xs text-gray-400">{INSTRUMENTO_LABELS[m.instrumento!] ?? "—"}</p>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-                {selectedMusicos.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">{selectedMusicos.length} selecionado(s)</p>
-                )}
-              </div>
-
-              {/* Setlist */}
-              <div>
-                <label className="label flex items-center gap-1.5">
-                  <ListMusic size={14} className="text-primary-500" /> Setlist
-                </label>
-                <p className="text-xs text-gray-400 mb-2">Do repertório ou avulsas — arraste para ordenar</p>
-                <SetlistEditor musicas={todasMusicas} itens={selectedSetlist} onChange={setSelectedSetlist} />
-              </div>
-
-              {/* Paleta de cores */}
-              <div>
-                <label className="label flex items-center gap-1.5">
-                  <Shirt size={14} className="text-primary-500" /> Combinação de roupas
-                </label>
-                <p className="text-xs text-gray-400 mb-3">Selecione os tons que a equipe vai usar</p>
-                <PaletaPicker selected={selectedPaleta} onChange={setSelectedPaleta} igrejaId={user?.igrejaId} uid={user!.uid} />
-              </div>
-
-              {/* Observações */}
-              <div>
-                <label className="label">Instruções gerais da celebração (opcional)</label>
-                <textarea
-                  value={observacoes}
-                  onChange={e => setObservacoes(e.target.value)}
-                  className="input resize-none"
-                  rows={2}
-                  placeholder="Ex: ministração após a 3ª música, Santa Ceia no final..."
-                />
-              </div>
-
-              <div className="flex gap-3 pt-1">
-                <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={handleCreate} disabled={saving} className="btn-primary flex-1">
-                  {saving ? "Criando..." : "Criar Escala"}
-                </button>
-              </div>
+            <div>
+              <label className="label">Tipo de culto</label>
+              <select
+                value={tipoCulto}
+                onChange={e => setTipoCulto(e.target.value as TipoCulto)}
+                className="input"
+              >
+                {Object.entries(CULTO_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
             </div>
           </div>
+
+          {/* Equipe */}
+          <div>
+            <label className="label flex items-center gap-1.5">
+              <Users2 size={14} className="text-primary-500" /> Equipe que vai ministrar
+            </label>
+            <select
+              value={equipeId}
+              onChange={e => handleEquipeChange(e.target.value)}
+              className="input"
+            >
+              <option value="">Selecione a equipe...</option>
+              {equipes.map(e => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
+            {equipeId && (
+              <p className="text-xs text-primary-600 mt-1.5 flex items-center gap-1">
+                <CheckCircle2 size={11} />
+                Músicos da equipe carregados automaticamente
+              </p>
+            )}
+          </div>
+
+          {/* Músicos */}
+          <div>
+            <label className="label flex items-center gap-1.5">
+              <Music2 size={14} className="text-primary-500" /> Músicos escalados *
+            </label>
+            {musicosDisponiveis.length === 0 ? (
+              <p className="text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl p-4 text-center">
+                {equipeId ? "Nenhum músico cadastrado nesta equipe" : "Selecione uma equipe ou aguarde o carregamento"}
+              </p>
+            ) : (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto border border-gray-100 rounded-2xl p-2">
+                {musicosDisponiveis.map(m => {
+                  const sel = selectedMusicos.some(x => x.uid === m.uid);
+                  return (
+                    <label
+                      key={m.uid}
+                      className={clsx(
+                        "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors",
+                        sel ? "bg-primary-50" : "hover:bg-gray-50"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={sel}
+                        onChange={() => toggleMusico(m)}
+                        className="w-4 h-4 accent-primary-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800">{m.name}</p>
+                        <p className="text-xs text-gray-400">{INSTRUMENTO_LABELS[m.instrumento!] ?? "—"}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            {selectedMusicos.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">{selectedMusicos.length} selecionado(s)</p>
+            )}
+          </div>
+
+          {/* Setlist */}
+          <div>
+            <label className="label flex items-center gap-1.5">
+              <ListMusic size={14} className="text-primary-500" /> Setlist
+            </label>
+            <p className="text-xs text-gray-400 mb-2">Do repertório ou avulsas — arraste para ordenar</p>
+            <SetlistEditor musicas={todasMusicas} itens={selectedSetlist} onChange={setSelectedSetlist} />
+          </div>
+
+          {/* Paleta de cores */}
+          <div>
+            <label className="label flex items-center gap-1.5">
+              <Shirt size={14} className="text-primary-500" /> Combinação de roupas
+            </label>
+            <p className="text-xs text-gray-400 mb-3">Selecione os tons que a equipe vai usar</p>
+            <PaletaPicker selected={selectedPaleta} onChange={setSelectedPaleta} igrejaId={user?.igrejaId} uid={user!.uid} />
+          </div>
+
+          {/* Observações */}
+          <div>
+            <label className="label">Instruções gerais da celebração (opcional)</label>
+            <textarea
+              value={observacoes}
+              onChange={e => setObservacoes(e.target.value)}
+              className="input resize-none"
+              rows={2}
+              placeholder="Ex: ministração após a 3ª música, Santa Ceia no final..."
+            />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleCreate} disabled={saving} className="btn-primary flex-1">
+              {saving ? "Criando..." : "Criar Escala"}
+            </button>
+          </div>
         </div>
+        </Sheet>
       )}
     </div>
   );

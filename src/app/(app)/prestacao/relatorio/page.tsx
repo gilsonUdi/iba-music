@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getRespostasByLider, getMusicosByLider, getPrestacaoControle,
@@ -229,7 +230,7 @@ export default function RelatorioPage() {
       )}
 
       {loading && (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista />
       )}
     </div>
   );

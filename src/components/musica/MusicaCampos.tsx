@@ -116,7 +116,7 @@ export default function MusicaCampos({
             href={buscaCifraClub(busca || "")}
             target="_blank"
             rel="noopener"
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-sm font-medium shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2.5 bg-orange-500 hover:brightness-110 text-white rounded-2xl text-sm font-medium shrink-0"
             title="Abre a busca do Cifra Club numa nova aba — copie o link e cole aqui"
           >
             <Search size={14} /> Cifra Club

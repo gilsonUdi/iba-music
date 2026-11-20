@@ -8,9 +8,9 @@ export const PLATAFORMAS: Record<Plataforma, {
   cor: string;       // classes do botão de busca
   vazio: string;     // placeholder quando nada foi escolhido
 }> = {
-  youtube: { nome: "YouTube", campo: "youtubeUrl", rota: "/api/youtube-search", cor: "bg-red-500 hover:bg-red-600",     vazio: "Nenhum vídeo selecionado" },
-  spotify: { nome: "Spotify", campo: "spotifyUrl", rota: "/api/spotify-search", cor: "bg-green-600 hover:bg-green-700", vazio: "Nenhuma faixa selecionada" },
-  deezer:  { nome: "Deezer",  campo: "deezerUrl",  rota: "/api/deezer-search",  cor: "bg-violet-600 hover:bg-violet-700", vazio: "Nenhuma faixa selecionada" },
+  youtube: { nome: "YouTube", campo: "youtubeUrl", rota: "/api/youtube-search", cor: "bg-red-500 hover:brightness-110",     vazio: "Nenhum vídeo selecionado" },
+  spotify: { nome: "Spotify", campo: "spotifyUrl", rota: "/api/spotify-search", cor: "bg-green-500 hover:brightness-110", vazio: "Nenhuma faixa selecionada" },
+  deezer:  { nome: "Deezer",  campo: "deezerUrl",  rota: "/api/deezer-search",  cor: "bg-violet-500 hover:brightness-110", vazio: "Nenhuma faixa selecionada" },
 };
 
 export function getYouTubeId(url: string): string | null {

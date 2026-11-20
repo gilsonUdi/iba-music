@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
@@ -61,7 +62,7 @@ export default function RelatorioRepertorioPage() {
       </div>
 
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista />
       ) : (
         <>
           {/* Mais tocadas */}

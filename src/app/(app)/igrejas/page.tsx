@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
 import { getIgrejas, createIgreja, updateIgreja, getAllUsers, contarSemIgreja, vincularSemIgreja } from "@/lib/firestore";
 import { mensagemErro } from "@/lib/errors";
@@ -8,6 +9,7 @@ import { registerUser } from "@/lib/auth";
 import type { Igreja, AppUser } from "@/lib/types";
 import { ROLE_LABELS } from "@/lib/types";
 import { toast } from "sonner";
+import Sheet from "@/components/ui/Sheet";
 import {
   Building2, Plus, Pencil, X, Users, MapPin,
   CheckCircle2, UserPlus, ChevronDown, ChevronUp,
@@ -229,7 +231,7 @@ export default function IgrejasPage() {
 
       {/* Lista de igrejas */}
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista />
       ) : igrejas.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <Building2 size={40} className="mx-auto mb-3 opacity-40" />
@@ -346,113 +348,109 @@ export default function IgrejasPage() {
 
       {/* ── Modal Igreja ─────────────────────────────────────────────────────── */}
       {showModalIgreja && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">
-                {editingIgreja ? "Editar Igreja" : "Nova Igreja"}
-              </h2>
-              <button onClick={() => setShowModalIgreja(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
+        <Sheet aberto onFechar={() => setShowModalIgreja(false)} className="sm:max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg">
+            {editingIgreja ? "Editar Igreja" : "Nova Igreja"}
+          </h2>
+          <button onClick={() => setShowModalIgreja(false)} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="label">Nome da Igreja *</label>
+            <input
+              value={formIgreja.name}
+              onChange={e => setFormIgreja(f => ({ ...f, name: e.target.value }))}
+              className="input"
+              placeholder="Ex: Igreja Batista Central"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Cidade</label>
+              <input
+                value={formIgreja.cidade}
+                onChange={e => setFormIgreja(f => ({ ...f, cidade: e.target.value }))}
+                className="input"
+                placeholder="São Paulo"
+              />
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="label">Nome da Igreja *</label>
-                <input
-                  value={formIgreja.name}
-                  onChange={e => setFormIgreja(f => ({ ...f, name: e.target.value }))}
-                  className="input"
-                  placeholder="Ex: Igreja Batista Central"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Cidade</label>
-                  <input
-                    value={formIgreja.cidade}
-                    onChange={e => setFormIgreja(f => ({ ...f, cidade: e.target.value }))}
-                    className="input"
-                    placeholder="São Paulo"
-                  />
-                </div>
-                <div>
-                  <label className="label">Estado</label>
-                  <input
-                    value={formIgreja.estado}
-                    onChange={e => setFormIgreja(f => ({ ...f, estado: e.target.value }))}
-                    className="input"
-                    placeholder="SP"
-                    maxLength={2}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowModalIgreja(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={handleSaveIgreja} disabled={savingIgreja} className="btn-primary flex-1">
-                  {savingIgreja ? "Salvando..." : editingIgreja ? "Salvar" : "Criar Igreja"}
-                </button>
-              </div>
+            <div>
+              <label className="label">Estado</label>
+              <input
+                value={formIgreja.estado}
+                onChange={e => setFormIgreja(f => ({ ...f, estado: e.target.value }))}
+                className="input"
+                placeholder="SP"
+                maxLength={2}
+              />
             </div>
           </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowModalIgreja(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleSaveIgreja} disabled={savingIgreja} className="btn-primary flex-1">
+              {savingIgreja ? "Salvando..." : editingIgreja ? "Salvar" : "Criar Igreja"}
+            </button>
+          </div>
         </div>
+        </Sheet>
       )}
 
       {/* ── Modal Pastor ─────────────────────────────────────────────────────── */}
       {showModalPastor && igrejaParaPastor && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div>
-                <h2 className="font-bold text-gray-900 text-lg">Novo Pastor</h2>
-                <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                  <Building2 size={11} /> {igrejaParaPastor.name}
-                </p>
-              </div>
-              <button onClick={() => setShowModalPastor(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="label">Nome completo *</label>
-                <input
-                  value={formPastor.name}
-                  onChange={e => setFormPastor(f => ({ ...f, name: e.target.value }))}
-                  className="input"
-                  placeholder="Pastor João da Silva"
-                />
-              </div>
-              <div>
-                <label className="label">E-mail *</label>
-                <input
-                  value={formPastor.email}
-                  onChange={e => setFormPastor(f => ({ ...f, email: e.target.value }))}
-                  type="email"
-                  className="input"
-                  placeholder="pastor@igreja.com"
-                />
-              </div>
-              <div>
-                <label className="label">Senha provisória *</label>
-                <input
-                  value={formPastor.password}
-                  onChange={e => setFormPastor(f => ({ ...f, password: e.target.value }))}
-                  type="password"
-                  className="input"
-                  placeholder="Mínimo 6 caracteres"
-                />
-                <p className="text-xs text-gray-400 mt-1">O pastor poderá alterar a senha depois</p>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowModalPastor(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={handleSavePastor} disabled={savingPastor} className="btn-primary flex-1">
-                  {savingPastor ? "Cadastrando..." : "Cadastrar Pastor"}
-                </button>
-              </div>
-            </div>
+        <Sheet aberto onFechar={() => setShowModalPastor(false)} className="sm:max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="font-bold text-gray-900 text-lg">Novo Pastor</h2>
+            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+              <Building2 size={11} /> {igrejaParaPastor.name}
+            </p>
+          </div>
+          <button onClick={() => setShowModalPastor(false)} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="label">Nome completo *</label>
+            <input
+              value={formPastor.name}
+              onChange={e => setFormPastor(f => ({ ...f, name: e.target.value }))}
+              className="input"
+              placeholder="Pastor João da Silva"
+            />
+          </div>
+          <div>
+            <label className="label">E-mail *</label>
+            <input
+              value={formPastor.email}
+              onChange={e => setFormPastor(f => ({ ...f, email: e.target.value }))}
+              type="email"
+              className="input"
+              placeholder="pastor@igreja.com"
+            />
+          </div>
+          <div>
+            <label className="label">Senha provisória *</label>
+            <input
+              value={formPastor.password}
+              onChange={e => setFormPastor(f => ({ ...f, password: e.target.value }))}
+              type="password"
+              className="input"
+              placeholder="Mínimo 6 caracteres"
+            />
+            <p className="text-xs text-gray-400 mt-1">O pastor poderá alterar a senha depois</p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowModalPastor(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleSavePastor} disabled={savingPastor} className="btn-primary flex-1">
+              {savingPastor ? "Cadastrando..." : "Cadastrar Pastor"}
+            </button>
           </div>
         </div>
+        </Sheet>
       )}
     </div>
   );

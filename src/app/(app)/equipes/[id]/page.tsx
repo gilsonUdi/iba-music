@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { corVisivel } from "@/lib/cores";
+import { EsqueletoPagina } from "@/components/ui/Esqueleto";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -61,14 +63,12 @@ export default function EquipePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
+      <EsqueletoPagina />
     );
   }
   if (!equipe) return null;
 
-  const cor = equipe.cor ?? "#7c3aed";
+  const cor = corVisivel(equipe.cor);
   const souMembro = equipe.membros.includes(user?.uid ?? "") || equipe.liderId === user?.uid;
 
   return (

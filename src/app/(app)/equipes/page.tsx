@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { corVisivel } from "@/lib/cores";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
 import { getEquipes, createEquipe, updateEquipe, deleteEquipe, getAllUsers, updateUser } from "@/lib/firestore";
 import type { Equipe, AppUser } from "@/lib/types";
 import { primaryRoleLabel, INSTRUMENTO_LABELS } from "@/lib/types";
 import { toast } from "sonner";
+import Sheet from "@/components/ui/Sheet";
 import Link from "next/link";
 import { mensagemErro } from "@/lib/errors";
 import { Users2, Plus, Pencil, Trash2, X, UserCheck, ChevronDown, FileText, ExternalLink, Headphones, Link2, ArrowRight } from "lucide-react";
@@ -157,7 +160,7 @@ export default function EquipesPage() {
 
       {/* Lista */}
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Carregando...</div>
+        <EsqueletoLista />
       ) : equipes.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <Users2 size={40} className="mx-auto mb-3 opacity-40" />
@@ -177,7 +180,7 @@ export default function EquipesPage() {
                 >
                   {/* Ícone */}
                   <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: eq.cor ? `${eq.cor}22` : undefined, border: eq.cor ? `1.5px solid ${eq.cor}44` : undefined }}>
-                    <Users2 size={20} style={{ color: eq.cor ?? "#7c3aed" }} />
+                    <Users2 size={20} style={{ color: corVisivel(eq.cor) }} />
                   </div>
 
                   {/* Info */}
@@ -246,7 +249,7 @@ export default function EquipesPage() {
                     <div className="flex flex-wrap gap-2">
                       <Link
                         href={`/equipes/${eq.id}`}
-                        className="inline-flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-700 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+                        className="inline-flex items-center gap-2 bg-primary-500 text-white hover:brightness-110 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
                       >
                         Abrir página da equipe <ArrowRight size={13} />
                       </Link>
@@ -310,148 +313,146 @@ export default function EquipesPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">
-                {editingEquipe ? "Editar Equipe" : "Nova Equipe"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="label">Nome da Equipe *</label>
-                <input
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="input"
-                  placeholder="Ex: Louvor Principal, Equipe Jovem..."
-                />
-              </div>
-              <div>
-                <label className="label">Descrição</label>
-                <input
-                  value={form.descricao ?? ""}
-                  onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
-                  className="input"
-                  placeholder="Descrição opcional"
-                />
-              </div>
-              <div>
-                <label className="label">Link das Cifras (Google Docs)</label>
-                <p className="text-xs text-gray-400 mb-1.5">Um único arquivo com as cifras de todas as músicas da equipe</p>
-                <input
-                  value={form.cifraUrl ?? ""}
-                  onChange={e => setForm(f => ({ ...f, cifraUrl: e.target.value }))}
-                  className="input"
-                  placeholder="https://docs.google.com/document/..."
-                />
-              </div>
-              <div>
-                <label className="label flex items-center gap-1.5"><Headphones size={14} className="text-green-500" /> Link dos VS / Playbacks (OneDrive)</label>
-                <p className="text-xs text-gray-400 mb-1.5">Pasta do OneDrive com os arquivos MP3 de stems da equipe</p>
-                <input
-                  value={form.vsUrl ?? ""}
-                  onChange={e => setForm(f => ({ ...f, vsUrl: e.target.value }))}
-                  className="input"
-                  placeholder="https://onedrive.live.com/..."
-                />
-              </div>
-              <div>
-                <label className="label">Cor da Equipe</label>
-                <p className="text-xs text-gray-400 mb-2">Usada para identificar a equipe nas escalas</p>
-                <div className="flex flex-wrap gap-2">
-                  {CORES_EQUIPE.map(c => (
-                    <button
-                      key={c.hex}
-                      type="button"
-                      title={c.label}
-                      onClick={() => setForm(f => ({ ...f, cor: f.cor === c.hex ? undefined : c.hex }))}
-                      className={clsx(
-                        "w-8 h-8 rounded-full transition-all",
-                        form.cor === c.hex ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : "hover:scale-110 opacity-70 hover:opacity-100"
-                      )}
-                      style={{ backgroundColor: c.hex }}
-                    />
-                  ))}
-                </div>
-                {form.cor && (
-                  <p className="text-xs text-gray-500 mt-1.5">
-                    Cor selecionada: <span className="font-medium">{CORES_EQUIPE.find(c => c.hex === form.cor)?.label}</span>
-                    <button type="button" onClick={() => setForm(f => ({ ...f, cor: undefined }))} className="ml-2 text-red-400 hover:text-red-600">remover</button>
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="label">Líder Responsável (opcional)</label>
-                <p className="text-xs text-gray-400 mb-1.5">Pode ficar sem líder. Se escolher alguém, o cargo <strong>Líder de Equipe</strong> é atribuído automaticamente</p>
-                <select
-                  value={form.liderId}
-                  onChange={e => setForm(f => ({ ...f, liderId: e.target.value }))}
-                  className="input"
-                >
-                  <option value="">Sem líder</option>
-                  {todosUsuarios.map(l => (
-                    <option key={l.uid} value={l.uid}>{l.name} ({primaryRoleLabel(l.roles)})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label">Músicos da Equipe</label>
-                <p className="text-xs text-gray-400 mb-2">Selecione um ou mais músicos</p>
-                <div className="space-y-1 max-h-48 overflow-y-auto border border-gray-100 rounded-2xl p-2">
-                  {musicos.length === 0 ? (
-                    <p className="text-sm text-gray-400 p-2">Nenhum músico cadastrado ainda.</p>
-                  ) : musicos.map(m => (
-                    <label
-                      key={m.uid}
-                      className={clsx(
-                        "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors",
-                        form.membros.includes(m.uid) ? "bg-primary-50" : "hover:bg-gray-50"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.membros.includes(m.uid)}
-                        onChange={() => toggleMembro(m.uid)}
-                        className="accent-primary-500"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800">{m.name}</p>
-                        {m.instrumento && <p className="text-xs text-gray-400">{m.instrumento}</p>}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mt-1">{form.membros.length} músico{form.membros.length !== 1 ? "s" : ""} selecionado{form.membros.length !== 1 ? "s" : ""}</p>
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="label mb-0">Equipe ativa</label>
+        <Sheet aberto onFechar={() => setShowModal(false)} className="sm:max-w-lg">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg">
+            {editingEquipe ? "Editar Equipe" : "Nova Equipe"}
+          </h2>
+          <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="label">Nome da Equipe *</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              className="input"
+              placeholder="Ex: Louvor Principal, Equipe Jovem..."
+            />
+          </div>
+          <div>
+            <label className="label">Descrição</label>
+            <input
+              value={form.descricao ?? ""}
+              onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
+              className="input"
+              placeholder="Descrição opcional"
+            />
+          </div>
+          <div>
+            <label className="label">Link das Cifras (Google Docs)</label>
+            <p className="text-xs text-gray-400 mb-1.5">Um único arquivo com as cifras de todas as músicas da equipe</p>
+            <input
+              value={form.cifraUrl ?? ""}
+              onChange={e => setForm(f => ({ ...f, cifraUrl: e.target.value }))}
+              className="input"
+              placeholder="https://docs.google.com/document/..."
+            />
+          </div>
+          <div>
+            <label className="label flex items-center gap-1.5"><Headphones size={14} className="text-green-500" /> Link dos VS / Playbacks (OneDrive)</label>
+            <p className="text-xs text-gray-400 mb-1.5">Pasta do OneDrive com os arquivos MP3 de stems da equipe</p>
+            <input
+              value={form.vsUrl ?? ""}
+              onChange={e => setForm(f => ({ ...f, vsUrl: e.target.value }))}
+              className="input"
+              placeholder="https://onedrive.live.com/..."
+            />
+          </div>
+          <div>
+            <label className="label">Cor da Equipe</label>
+            <p className="text-xs text-gray-400 mb-2">Usada para identificar a equipe nas escalas</p>
+            <div className="flex flex-wrap gap-2">
+              {CORES_EQUIPE.map(c => (
                 <button
+                  key={c.hex}
                   type="button"
-                  onClick={() => setForm(f => ({ ...f, ativo: !f.ativo }))}
+                  title={c.label}
+                  onClick={() => setForm(f => ({ ...f, cor: f.cor === c.hex ? undefined : c.hex }))}
                   className={clsx(
-                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                    form.ativo ? "bg-primary-500" : "bg-gray-200"
+                    "w-8 h-8 rounded-full transition-all",
+                    form.cor === c.hex ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : "hover:scale-110 opacity-70 hover:opacity-100"
+                  )}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+            </div>
+            {form.cor && (
+              <p className="text-xs text-gray-500 mt-1.5">
+                Cor selecionada: <span className="font-medium">{CORES_EQUIPE.find(c => c.hex === form.cor)?.label}</span>
+                <button type="button" onClick={() => setForm(f => ({ ...f, cor: undefined }))} className="ml-2 text-red-400 hover:text-red-600">remover</button>
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="label">Líder Responsável (opcional)</label>
+            <p className="text-xs text-gray-400 mb-1.5">Pode ficar sem líder. Se escolher alguém, o cargo <strong>Líder de Equipe</strong> é atribuído automaticamente</p>
+            <select
+              value={form.liderId}
+              onChange={e => setForm(f => ({ ...f, liderId: e.target.value }))}
+              className="input"
+            >
+              <option value="">Sem líder</option>
+              {todosUsuarios.map(l => (
+                <option key={l.uid} value={l.uid}>{l.name} ({primaryRoleLabel(l.roles)})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Músicos da Equipe</label>
+            <p className="text-xs text-gray-400 mb-2">Selecione um ou mais músicos</p>
+            <div className="space-y-1 max-h-48 overflow-y-auto border border-gray-100 rounded-2xl p-2">
+              {musicos.length === 0 ? (
+                <p className="text-sm text-gray-400 p-2">Nenhum músico cadastrado ainda.</p>
+              ) : musicos.map(m => (
+                <label
+                  key={m.uid}
+                  className={clsx(
+                    "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors",
+                    form.membros.includes(m.uid) ? "bg-primary-50" : "hover:bg-gray-50"
                   )}
                 >
-                  <span className={clsx(
-                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-                    form.ativo ? "translate-x-6" : "translate-x-1"
-                  )} />
-                </button>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
-                  {saving ? "Salvando..." : editingEquipe ? "Salvar" : "Criar Equipe"}
-                </button>
-              </div>
+                  <input
+                    type="checkbox"
+                    checked={form.membros.includes(m.uid)}
+                    onChange={() => toggleMembro(m.uid)}
+                    className="accent-primary-500"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800">{m.name}</p>
+                    {m.instrumento && <p className="text-xs text-gray-400">{m.instrumento}</p>}
+                  </div>
+                </label>
+              ))}
             </div>
+            <p className="text-xs text-gray-400 mt-1">{form.membros.length} músico{form.membros.length !== 1 ? "s" : ""} selecionado{form.membros.length !== 1 ? "s" : ""}</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="label mb-0">Equipe ativa</label>
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, ativo: !f.ativo }))}
+              className={clsx(
+                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                form.ativo ? "bg-primary-500" : "bg-gray-200"
+              )}
+            >
+              <span className={clsx(
+                "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+                form.ativo ? "translate-x-6" : "translate-x-1"
+              )} />
+            </button>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
+              {saving ? "Salvando..." : editingEquipe ? "Salvar" : "Criar Equipe"}
+            </button>
           </div>
         </div>
+        </Sheet>
       )}
     </div>
   );

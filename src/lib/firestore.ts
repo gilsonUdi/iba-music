@@ -269,6 +269,15 @@ export async function enviarParaVotacao(id: string) {
   });
 }
 
+/** Pastor aprova músicas pendentes direto, sem votação. */
+export async function aprovarSemVotacao(ids: string[]) {
+  for (let i = 0; i < ids.length; i += 400) {
+    const batch = writeBatch(db);
+    ids.slice(i, i + 400).forEach(id => batch.update(doc(db, "musicas", id), { status: "aprovada", ativo: true }));
+    await batch.commit();
+  }
+}
+
 /** Retira (ativo=false) ou recoloca (ativo=true) uma música no repertório. */
 export async function setMusicaAtiva(id: string, ativo: boolean) {
   await updateDoc(doc(db, "musicas", id), { ativo });
@@ -283,8 +292,13 @@ export async function setFavorita(uid: string, musicaId: string, favorita: boole
 
 // ── CONFIGURAÇÕES ──────────────────────────────────────────────────────────────
 export async function getConfigRepertorio(): Promise<ConfigRepertorio> {
-  const snap = await getDoc(doc(db, "configuracoes", "repertorio"));
-  return { liberacaoDireta: snap.exists() ? snap.data().liberacaoDireta === true : false };
+  try {
+    const snap = await getDoc(doc(db, "configuracoes", "repertorio"));
+    return { liberacaoDireta: snap.exists() ? snap.data().liberacaoDireta === true : false };
+  } catch {
+    // Regras antigas (sem a coleção configuracoes) negam a leitura: trata como bloqueado
+    return { liberacaoDireta: false };
+  }
 }
 
 export async function setLiberacaoDireta(liberacaoDireta: boolean) {

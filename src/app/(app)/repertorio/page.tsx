@@ -8,6 +8,7 @@ import {
   getMusicas, createMusica, getMusicasPendentes, getMusicasByLider,
   getAllPastores, votarMusica, getRepertorioEquipe, setRepertorioEquipe,
   getEquipes, getEscalas, getUser, setFavorita, getConfigRepertorio, setLiberacaoDireta,
+  aprovarSemVotacao,
 } from "@/lib/firestore";
 import { formatarDuracao, type Musica, type MusicaStatus, type Equipe } from "@/lib/types";
 import { toast } from "sonner";
@@ -100,12 +101,14 @@ function CardPendente({
   totalPastores,
   readonly = false,
   onVotar,
+  onAprovar,
 }: {
   musica: Musica;
   pastorUid: string;
   totalPastores: number;
   readonly?: boolean;
   onVotar: (id: string, pontuacao: number, comentario: string) => Promise<void>;
+  onAprovar?: () => void;
 }) {
   const meuVoto = musica.votos?.[pastorUid];
   const [open, setOpen] = useState(false);
@@ -191,6 +194,13 @@ function CardPendente({
           )}
 
           {/* Formulário de voto — oculto para diretor */}
+          {onAprovar && (
+            <button onClick={onAprovar}
+              className="w-full text-sm font-semibold text-green-700 bg-green-50 hover:bg-green-100 rounded-2xl py-2.5 flex items-center justify-center gap-1.5">
+              <CheckCircle2 size={15} /> Aprovar sem votação
+            </button>
+          )}
+
           {!readonly && <div className="bg-white rounded-2xl p-4 border border-primary-100 space-y-3">
             <p className="text-sm font-semibold text-gray-700">
               {meuVoto ? "Atualizar meu voto" : "Meu voto"}
@@ -402,7 +412,6 @@ export default function RepertorioPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [form,      setForm]      = useState<MusicaForm>({ ...EMPTY });
-  const [liberarDireto, setLiberarDireto] = useState(true);
   const [saving,    setSaving]    = useState(false);
 
   const equipe = equipes.find(e => e.id === equipeId);
@@ -443,9 +452,9 @@ export default function RepertorioPage() {
     getRepertorioEquipe(equipeId).then(setRepEquipe).catch(e => toast.error(mensagemErro(e)));
   }, [equipeId]);
 
-  function openNew() { setForm({ ...EMPTY }); setLiberarDireto(true); setShowModal(true); }
+  function openNew() { setForm({ ...EMPTY }); setShowModal(true); }
 
-  const vaiAprovado = isPastor || (liberacao && liberarDireto);
+  const vaiAprovado = isPastor || liberacao;
 
   async function handleSave() {
     if (!form.titulo?.trim() || !form.artista?.trim()) { toast.error("Título e artista são obrigatórios"); return; }
@@ -484,16 +493,30 @@ export default function RepertorioPage() {
     }
   }
 
+  async function aprovarPendentes(ids: string[]) {
+    const msg = ids.length === 1
+      ? "Aprovar esta música sem votação? Ela entra direto no repertório."
+      : `Aprovar as ${ids.length} músicas pendentes sem votação? Todas entram direto no repertório.`;
+    if (!confirm(msg)) return;
+    try {
+      await aprovarSemVotacao(ids);
+      toast.success(ids.length === 1 ? "Música aprovada" : `${ids.length} músicas aprovadas`);
+      await load();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao aprovar"));
+    }
+  }
+
   async function toggleLiberacao() {
     const novo = !liberacao;
     const msg = novo
-      ? "Liberar o cadastro direto? Líderes poderão adicionar músicas já aprovadas, sem votação."
-      : "Bloquear o cadastro direto? Novas músicas voltam a passar pela votação dos pastores.";
+      ? "Liberar o cadastro direto? Todas as músicas novas entram direto no repertório, sem votação."
+      : "Iniciar a rotina de aprovação? Novas músicas voltam a passar pela votação dos pastores.";
     if (!confirm(msg)) return;
     try {
       await setLiberacaoDireta(novo);
       setLiberacao(novo);
-      toast.success(novo ? "Cadastro direto liberado" : "Cadastro direto bloqueado");
+      toast.success(novo ? "Cadastro direto liberado" : "Rotina de aprovação ativada");
     } catch (e) {
       toast.error(mensagemErro(e, "Erro ao alterar a liberação"));
     }
@@ -615,12 +638,12 @@ export default function RepertorioPage() {
           {liberacao ? <Unlock size={16} className="text-green-600 shrink-0" /> : <Lock size={16} className="text-gray-400 shrink-0" />}
           <p className="flex-1 text-gray-700">
             {liberacao
-              ? "Cadastro direto liberado: músicas já aprovadas podem entrar sem votação."
-              : "Cadastro direto bloqueado: novas músicas passam pela votação dos pastores."}
+              ? "Cadastro direto liberado: as músicas entram no repertório sem votação."
+              : "Rotina de aprovação ativa: novas músicas passam pela votação dos pastores."}
           </p>
           {isPastor && (
             <button onClick={toggleLiberacao} className="text-xs font-semibold text-primary-600 hover:text-primary-800 shrink-0">
-              {liberacao ? "Bloquear" : "Liberar"}
+              {liberacao ? "Ativar votação" : "Liberar cadastro"}
             </button>
           )}
         </div>
@@ -750,13 +773,20 @@ export default function RepertorioPage() {
                   </p>
                 )}
                 {isPastor && (
-                  <p className="text-sm text-gray-500">
-                    {pendentes.filter(m => m.votos?.[user!.uid]).length} de {pendentes.length} avaliadas por você
-                  </p>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-sm text-gray-500">
+                      {pendentes.filter(m => m.votos?.[user!.uid]).length} de {pendentes.length} avaliadas por você
+                    </p>
+                    <button onClick={() => aprovarPendentes(pendentes.map(m => m.id))}
+                      className="text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-xl flex items-center gap-1">
+                      <CheckCircle2 size={13} /> Aprovar todas sem votação
+                    </button>
+                  </div>
                 )}
                 {pendentes.map(m => (
                   <CardPendente key={m.id} musica={m} pastorUid={user!.uid} totalPastores={totalPastores}
-                    readonly={isDiretor} onVotar={handleVotar} />
+                    readonly={isDiretor} onVotar={handleVotar}
+                    onAprovar={isPastor ? () => aprovarPendentes([m.id]) : undefined} />
                 ))}
               </div>
             )
@@ -795,22 +825,6 @@ export default function RepertorioPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600" aria-label="Fechar"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
-              {liberacao && !isPastor && (
-                <div className="grid sm:grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setLiberarDireto(true)}
-                    className={clsx("text-left p-3 rounded-2xl border-2 transition-colors",
-                      liberarDireto ? "border-green-500 bg-green-50" : "border-gray-100 hover:border-gray-200")}>
-                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><Unlock size={14} /> Já aprovada — liberar</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Entra direto no repertório</p>
-                  </button>
-                  <button type="button" onClick={() => setLiberarDireto(false)}
-                    className={clsx("text-left p-3 rounded-2xl border-2 transition-colors",
-                      !liberarDireto ? "border-amber-500 bg-amber-50" : "border-gray-100 hover:border-gray-200")}>
-                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><Clock size={14} /> Enviar para votação</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Os pastores avaliam antes</p>
-                  </button>
-                </div>
-              )}
               <MusicaCampos form={form} setForm={setForm} />
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>

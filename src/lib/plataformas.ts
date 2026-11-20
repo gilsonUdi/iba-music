@@ -1,16 +1,22 @@
 /** Plataformas de música/vídeo integradas ao repertório. */
-export type Plataforma = "youtube" | "spotify" | "deezer";
+export type Plataforma = "youtube" | "spotify" | "deezer" | "cifraclub";
 
 export const PLATAFORMAS: Record<Plataforma, {
   nome: string;
-  campo: "youtubeUrl" | "spotifyUrl" | "deezerUrl";
+  campo: "youtubeUrl" | "spotifyUrl" | "deezerUrl" | "cifraUrl";
   rota: string;
   cor: string;       // classes do botão de busca
   vazio: string;     // placeholder quando nada foi escolhido
+  buscaExterna?: (q: string) => string; // plano B quando a busca interna não está configurada
 }> = {
   youtube: { nome: "YouTube", campo: "youtubeUrl", rota: "/api/youtube-search", cor: "bg-red-500 hover:brightness-110",     vazio: "Nenhum vídeo selecionado" },
   spotify: { nome: "Spotify", campo: "spotifyUrl", rota: "/api/spotify-search", cor: "bg-green-500 hover:brightness-110", vazio: "Nenhuma faixa selecionada" },
   deezer:  { nome: "Deezer",  campo: "deezerUrl",  rota: "/api/deezer-search",  cor: "bg-violet-500 hover:brightness-110", vazio: "Nenhuma faixa selecionada" },
+  cifraclub: {
+    nome: "Cifra Club", campo: "cifraUrl", rota: "/api/cifraclub-search", cor: "bg-orange-500 hover:brightness-110",
+    vazio: "Nenhuma cifra selecionada",
+    buscaExterna: q => `https://www.google.com/search?q=${encodeURIComponent(`site:cifraclub.com.br ${q}`)}`,
+  },
 };
 
 export function getYouTubeId(url: string): string | null {

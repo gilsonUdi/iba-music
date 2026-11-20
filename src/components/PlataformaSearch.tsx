@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, X, Youtube, Music, Loader2 } from "lucide-react";
+import { Search, X, Youtube, Music, Loader2, FileText, ExternalLink } from "lucide-react";
 import clsx from "clsx";
 import { auth } from "@/lib/firebase";
 import { PLATAFORMAS, type Plataforma } from "@/lib/plataformas";
@@ -24,12 +24,13 @@ interface Props {
 /** Busca uma música no YouTube, Spotify ou Deezer e devolve o link escolhido. */
 export default function PlataformaSearch({ plataforma, value, onChange, searchQuery }: Props) {
   const cfg = PLATAFORMAS[plataforma];
-  const Icone = plataforma === "youtube" ? Youtube : Music;
+  const Icone = plataforma === "youtube" ? Youtube : plataforma === "cifraclub" ? FileText : Music;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Resultado[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [naoConfigurado, setNaoConfigurado] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -58,6 +59,7 @@ export default function PlataformaSearch({ plataforma, value, onChange, searchQu
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = await res.json();
+      setNaoConfigurado(!!data.naoConfigurado);
       if (data.error) { setError(data.error); setResults([]); }
       else setResults(data.items ?? []);
     } catch {
@@ -147,9 +149,18 @@ export default function PlataformaSearch({ plataforma, value, onChange, searchQu
                 <Loader2 size={18} className="animate-spin" /> Buscando...
               </div>
             )}
-            {!loading && error && (
+            {!loading && error && (naoConfigurado && cfg.buscaExterna ? (
+              <div className="py-5 px-4 text-center space-y-2">
+                <p className="text-sm text-gray-500">A busca dentro do app ainda não foi ativada.</p>
+                <a href={cfg.buscaExterna(query)} target="_blank" rel="noopener"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:underline">
+                  <ExternalLink size={13} /> Buscar no {cfg.nome} em nova aba
+                </a>
+                <p className="text-xs text-gray-400">Copie o link da cifra e cole no campo abaixo.</p>
+              </div>
+            ) : (
               <div className="py-6 text-center text-red-500 text-sm px-4">{error}</div>
-            )}
+            ))}
             {!loading && !error && results.length === 0 && query && (
               <div className="py-6 text-center text-gray-400 text-sm">Nenhum resultado encontrado</div>
             )}
@@ -167,7 +178,13 @@ export default function PlataformaSearch({ plataforma, value, onChange, searchQu
                   "w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary-50 transition-colors text-left border-b border-gray-50 last:border-0"
                 )}
               >
-                <img src={r.thumb} alt="" className={`${plataforma === "youtube" ? "w-16" : "w-12"} h-12 rounded-lg object-cover shrink-0 bg-gray-100`} />
+                {r.thumb ? (
+                  <img src={r.thumb} alt="" className={`${plataforma === "youtube" ? "w-16" : "w-12"} h-12 rounded-lg object-cover shrink-0 bg-gray-100`} />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                    <Icone size={17} className="text-orange-600" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">{r.title}</p>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{r.subtitle}</p>

@@ -261,7 +261,8 @@ export interface PrestacaoResposta {
   id: string;             // formato: {uid}_{YYYY-MM}
   uid: string;            // UID do músico
   musicoName: string;
-  liderUid: string;       // UID do líder de célula que pode ver
+  liderUid: string;       // UID do líder de célula que pode ver (quando ele tem conta)
+  igrejaId?: string;      // o pastor da igreja vê as respostas
   mes: string;            // formato: YYYY-MM
   respostas: Record<string, string | number | string[]>; // perguntaId → resposta
   enviadoEm: Date;

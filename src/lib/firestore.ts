@@ -490,8 +490,9 @@ export async function getRespostasByLider(liderUid: string, mes: string): Promis
   return snap.docs.map(d => ({ ...d.data(), id: d.id, enviadoEm: toDate(d.data().enviadoEm) } as PrestacaoResposta));
 }
 
-export async function getAllRespostasByMes(mes: string): Promise<PrestacaoResposta[]> {
-  const q = query(collection(db, "prestacao_respostas"), where("mes", "==", mes));
+/** Todas as respostas do mês na igreja (visão do pastor). */
+export async function getAllRespostasByMes(mes: string, igrejaId?: string): Promise<PrestacaoResposta[]> {
+  const q = porIgreja("prestacao_respostas", igrejaId, where("mes", "==", mes));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ ...d.data(), id: d.id, enviadoEm: toDate(d.data().enviadoEm) } as PrestacaoResposta));
 }
@@ -523,7 +524,7 @@ export async function initPrestacaoControle(mes: string, totalMusicos: number) {
 // ── MIGRAÇÃO (super admin) ─────────────────────────────────────────────────────
 /** Coleções que pertencem a uma igreja e precisam do campo igrejaId. */
 export const COLECOES_POR_IGREJA = [
-  "users", "equipes", "escalas", "musicas", "notificacoes", "prestacao_perguntas",
+  "users", "equipes", "escalas", "musicas", "notificacoes", "prestacao_perguntas", "prestacao_respostas",
 ] as const;
 
 /** Conta, por coleção, os documentos antigos sem igrejaId (ignora super admins). */

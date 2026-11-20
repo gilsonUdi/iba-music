@@ -5,8 +5,10 @@ import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getRespostasByLider, getMusicosByLider, getPrestacaoControle,
-  initPrestacaoControle, getPrestacaoPerguntas,
+  initPrestacaoControle, getPrestacaoPerguntas, getAllRespostasByMes, getAllUsers,
 } from "@/lib/firestore";
+import { toast } from "sonner";
+import { mensagemErro } from "@/lib/errors";
 import type { AppUser, PrestacaoPergunta, PrestacaoResposta } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -27,14 +29,15 @@ export default function RelatorioPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [totalMusicos, setTotalMusicos] = useState(0);
 
-  useEffect(() => {
-    if (user && !user.roles?.includes("lider_celula")) {
-      router.replace("/prestacao");
-    }
-  }, [user]);
+  const isPastor = !!user?.roles?.some(r => r === "pastor" || r === "super_admin");
+  const podeVer = isPastor || !!user?.roles?.includes("lider_celula");
 
   useEffect(() => {
-    if (!user || !user.roles?.includes("lider_celula")) return;
+    if (user && !podeVer) router.replace("/prestacao");
+  }, [user, podeVer]);
+
+  useEffect(() => {
+    if (!user || !podeVer) return;
     load();
   }, [user, mesAtual]);
 
@@ -43,8 +46,13 @@ export default function RelatorioPage() {
     try {
       const [perg, resp, mus] = await Promise.all([
         getPrestacaoPerguntas(user!.igrejaId),
-        getRespostasByLider(user!.uid, mesAtual),
-        getMusicosByLider(user!.uid),
+        isPastor ? getAllRespostasByMes(mesAtual, user!.igrejaId) : getRespostasByLider(user!.uid, mesAtual),
+        // Pastor: todos que respondem a prestação (músicos e líderes de equipe ativos)
+        isPastor
+          ? getAllUsers(user!.igrejaId).then(us => us.filter(u =>
+              u.ativo !== false && !u.roles.includes("pastor") &&
+              (u.roles.includes("musico") || u.roles.includes("lider_equipe"))))
+          : getMusicosByLider(user!.uid),
       ]);
 
       setPerguntas(perg);
@@ -58,6 +66,8 @@ export default function RelatorioPage() {
         await initPrestacaoControle(mesAtual, mus.length);
         controle = await getPrestacaoControle(mesAtual);
       }
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao carregar o relatório"));
     } finally {
       setLoading(false);
     }
@@ -77,7 +87,7 @@ export default function RelatorioPage() {
     return format(d, "yyyy-MM");
   });
 
-  if (!user?.roles?.includes("lider_celula")) return null;
+  if (!podeVer) return null;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -160,7 +170,14 @@ export default function RelatorioPage() {
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
                   <span className="text-gray-500 text-xs font-bold">{m.name[0]}</span>
                 </div>
-                <p className="font-medium text-gray-800">{m.name}</p>
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800">{m.name}</p>
+                  {(m.celulaNome || m.liderCelulaNome) && (
+                    <p className="text-xs text-gray-400 truncate">
+                      {[m.celulaNome, m.liderCelulaNome && `Líder: ${m.liderCelulaNome}`].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </div>
                 <span className="ml-auto badge bg-amber-100 text-amber-700">Pendente</span>
               </div>
             ))}
@@ -193,6 +210,7 @@ export default function RelatorioPage() {
                       <p className="font-medium text-gray-800">{m.name}</p>
                       <p className="text-xs text-gray-400">
                         Enviado em {format(resp.enviadoEm, "dd/MM/yyyy 'às' HH:mm")}
+                        {m.celulaNome && ` · ${m.celulaNome}`}
                       </p>
                     </div>
                     <span className="badge bg-green-100 text-green-700 mr-2">Respondido</span>
@@ -204,7 +222,7 @@ export default function RelatorioPage() {
                       <div className="mt-1 p-3 bg-amber-50 rounded-xl border border-amber-100 mb-4">
                         <p className="text-xs text-amber-700 flex items-center gap-1">
                           <AlertCircle size={11} />
-                          Conteúdo confidencial — visível apenas para você e o músico.
+                          Conteúdo confidencial — visível apenas para o músico, o pastor e o líder de célula vinculado.
                         </p>
                       </div>
                       <div className="space-y-4">

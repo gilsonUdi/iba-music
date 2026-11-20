@@ -76,6 +76,7 @@ export default function PrestacaoPage() {
         uid: user!.uid,
         musicoName: user!.name,
         liderUid: user!.liderUid ?? "",
+        igrejaId: user!.igrejaId,
         mes,
         respostas,
       });

@@ -13,7 +13,7 @@ import {
   Calendar, ChevronRight, BookMarked, Music2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { getEquipe, getAllUsers, getEscalas, getMusicas, getRepertorioEquipe } from "@/lib/firestore";
+import { getEquipe, getAllUsers, getEscalas, getMusicas, getRepertorioEquipe, obterConviteDaEquipe, renovarConvite } from "@/lib/firestore";
 import { mensagemErro } from "@/lib/errors";
 import { CULTO_LABELS, INSTRUMENTO_LABELS, type AppUser, type Equipe, type Escala, type Musica } from "@/lib/types";
 
@@ -51,13 +51,41 @@ export default function EquipePage() {
     load();
   }, [id, user, router]);
 
-  async function copiarLink() {
-    const url = window.location.href;
+  const podeConvidar = !!equipe && !!user && (
+    user.roles.some(r => ["super_admin", "pastor", "diretor_musical"].includes(r)) || equipe.liderId === user.uid
+  );
+
+  async function copiar(url: string, msg: string) {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link da equipe copiado!");
+      toast.success(msg);
     } catch {
-      toast.info(url);
+      toast.info(url, { duration: 15000 });
+    }
+  }
+
+  /** Líder/diretor copia o convite (cadastro + entrada na equipe); os demais, o link da página. */
+  async function copiarLink() {
+    if (!equipe || !user) return;
+    if (!podeConvidar) { copiar(window.location.href, "Link da equipe copiado!"); return; }
+    try {
+      const codigo = await obterConviteDaEquipe(equipe, user.uid);
+      if (!equipe.conviteId) setEquipe({ ...equipe, conviteId: codigo });
+      copiar(`${window.location.origin}/convite/${codigo}`, "Link de convite copiado — envie aos músicos!");
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao gerar o convite"));
+    }
+  }
+
+  async function novoLink() {
+    if (!equipe || !user) return;
+    if (!confirm("Gerar um link novo? O link anterior deixa de funcionar.")) return;
+    try {
+      const codigo = await renovarConvite(equipe, user.uid);
+      setEquipe({ ...equipe, conviteId: codigo });
+      copiar(`${window.location.origin}/convite/${codigo}`, "Link novo copiado! O anterior foi desativado.");
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao gerar o link"));
     }
   }
 
@@ -91,10 +119,21 @@ export default function EquipePage() {
           </p>
           {equipe.descricao && <p className="text-sm text-gray-400 mt-1">{equipe.descricao}</p>}
         </div>
-        <button onClick={copiarLink} className="btn-secondary flex items-center gap-1.5 text-sm shrink-0">
-          <Link2 size={14} /> <span className="hidden sm:inline">Copiar link</span>
-        </button>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <button onClick={copiarLink} className="btn-secondary flex items-center gap-1.5 text-sm">
+            <Link2 size={14} /> <span className="hidden sm:inline">{podeConvidar ? "Copiar convite" : "Copiar link"}</span>
+          </button>
+          {podeConvidar && equipe.conviteId && (
+            <button onClick={novoLink} className="text-[11px] text-gray-400 hover:text-gray-600">Gerar link novo</button>
+          )}
+        </div>
       </div>
+
+      {podeConvidar && (
+        <p className="text-xs text-gray-500 bg-primary-50 rounded-xl px-3 py-2">
+          Envie o <strong>convite</strong> aos músicos: quem ainda não tem conta faz o cadastro pelo link e já entra nesta equipe.
+        </p>
+      )}
 
       {!souMembro && (
         <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2">

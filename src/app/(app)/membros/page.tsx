@@ -39,6 +39,9 @@ interface FormData {
   instrumentos: Instrumento[];
   instrumentoPrincipal: Instrumento | "";
   liderUid: string;
+  celulaNome: string;
+  liderCelulaNome: string;
+  liderCelulaTelefone: string;
   telefone: string;
   estadoCivil: EstadoCivil | "";
 }
@@ -47,6 +50,7 @@ const EMPTY: FormData = {
   name: "", email: "", password: "",
   roles: ["musico"],
   instrumentos: [], instrumentoPrincipal: "", liderUid: "", telefone: "",
+  celulaNome: "", liderCelulaNome: "", liderCelulaTelefone: "",
   estadoCivil: "",
 };
 
@@ -103,6 +107,9 @@ export default function MembrosPage() {
       instrumentos: instrs,
       instrumentoPrincipal: u.instrumentoPrincipal ?? u.instrumento ?? "",
       liderUid: u.liderUid ?? "",
+      celulaNome: u.celulaNome ?? "",
+      liderCelulaNome: u.liderCelulaNome ?? "",
+      liderCelulaTelefone: u.liderCelulaTelefone ?? "",
       telefone: u.telefone ?? "",
       estadoCivil: u.estadoCivil ?? "",
     });
@@ -147,6 +154,9 @@ export default function MembrosPage() {
         instrumentoPrincipal: principal,
         telefone: form.telefone || undefined,
         estadoCivil: form.estadoCivil || undefined,
+        celulaNome: form.celulaNome.trim() || undefined,
+        liderCelulaNome: form.liderCelulaNome.trim() || undefined,
+        liderCelulaTelefone: form.liderCelulaTelefone.trim() || undefined,
       };
       if (editingUser) {
         await updateUser(editingUser.uid, {
@@ -289,6 +299,7 @@ export default function MembrosPage() {
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(u => {
                   const lider = lideresCelula.find(l => l.uid === u.liderUid);
+                  const nomeLider = u.liderCelulaNome || lider?.name;
                   return (
                     <tr key={u.uid} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
@@ -330,11 +341,14 @@ export default function MembrosPage() {
                         ) : u.instrumento ? INSTRUMENTO_LABELS[u.instrumento] : "—"}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {lider ? (
-                          <span className="flex items-center gap-1">
-                            <UserCheck size={13} className="text-primary-500" />
-                            {lider.name.split(" ")[0]}
-                          </span>
+                        {nomeLider ? (
+                          <div>
+                            <span className="flex items-center gap-1">
+                              <UserCheck size={13} className="text-primary-500" />
+                              {nomeLider.split(" ")[0]}
+                            </span>
+                            {u.celulaNome && <p className="text-xs text-gray-400">{u.celulaNome}</p>}
+                          </div>
                         ) : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -526,24 +540,25 @@ export default function MembrosPage() {
             </div>
           )}
 
-          {/* Líder de Célula (se músico) */}
+          {/* Célula (informada direto no cadastro do membro) */}
           {showsLider && (
-            <div>
-              <label className="label">Líder de Célula</label>
-              <select
-                value={form.liderUid}
-                onChange={e => setForm(f => ({ ...f, liderUid: e.target.value }))}
-                className="input"
-              >
-                <option value="">Sem líder associado</option>
-                {lideresCelula.map(l => (
-                  <option key={l.uid} value={l.uid}>{l.name}</option>
-                ))}
-              </select>
-              {lideresCelula.length === 0 && (
-                <p className="text-xs text-amber-600 mt-1">Nenhum Líder de Célula cadastrado ainda.</p>
-              )}
-            </div>
+            <fieldset className="rounded-2xl border border-white/10 p-3 space-y-3">
+              <legend className="px-1 text-sm font-semibold text-gray-700">Célula</legend>
+              <div>
+                <label className="text-xs text-gray-500">Nome da célula</label>
+                <input value={form.celulaNome} onChange={e => setForm(f => ({ ...f, celulaNome: e.target.value }))} className="input mt-1" placeholder="Ex.: Célula Vida Nova" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500">Líder de célula</label>
+                  <input value={form.liderCelulaNome} onChange={e => setForm(f => ({ ...f, liderCelulaNome: e.target.value }))} className="input mt-1" placeholder="Nome do líder" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">WhatsApp do líder</label>
+                  <input type="tel" value={form.liderCelulaTelefone} onChange={e => setForm(f => ({ ...f, liderCelulaTelefone: e.target.value }))} className="input mt-1" placeholder="(34) 99999-9999" />
+                </div>
+              </div>
+            </fieldset>
           )}
 
           <div className="flex gap-3 pt-2">

@@ -18,7 +18,7 @@ import { mensagemErro } from "@/lib/errors";
 import {
   Library, Plus, Search, X, Music2, Clock,
   CheckCircle2, XCircle, Star, BookMarked, ChevronDown, ChevronUp,
-  AlertCircle, Bookmark, BookmarkCheck, History, Timer, EyeOff, BarChart3, Unlock, Lock,
+  AlertCircle, Bookmark, BookmarkCheck, History, Timer, EyeOff, BarChart3, Unlock, Lock, FileDown,
 } from "lucide-react";
 import clsx from "clsx";
 import MusicaCampos, { camposEditaveis, type MusicaForm } from "@/components/musica/MusicaCampos";
@@ -620,6 +620,11 @@ export default function RepertorioPage() {
           <p className="text-gray-500 mt-1">{musicas.filter(m => m.ativo !== false).length} músicas no repertório</p>
         </div>
         <div className="flex gap-2 shrink-0">
+          {podeCadastrar && (
+            <Link href="/repertorio/importar-cifras" className="btn-secondary flex items-center gap-2" title="Importar cifras do Google Docs">
+              <FileDown size={16} /> <span className="hidden sm:inline">Importar cifras</span>
+            </Link>
+          )}
           {podeCadastrar && (
             <Link href="/repertorio/relatorio" className="btn-secondary flex items-center gap-2" title="Músicas mais tocadas">
               <BarChart3 size={16} /> <span className="hidden sm:inline">Relatório</span>

@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import {
   Calendar, Library, Users, Bell, ClipboardCheck, AlertCircle, CheckCircle2, XCircle,
-  ChevronRight, Youtube, ListMusic, Sparkles, Plus, Users2,
+  ChevronRight, Youtube, ListMusic, Sparkles, Plus, Users2, Maximize2,
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/hooks/useAuth";
@@ -234,6 +234,12 @@ export default function DashboardPage() {
                   style={{ backgroundColor: "#fff" }}>
                   Ver escala <ChevronRight size={15} />
                 </Link>
+                {itens.length > 0 && (
+                  <Link href={`/estante?escala=${destaque.id}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold border border-white/15 hover:bg-white/15">
+                    <Maximize2 size={15} /> Estante
+                  </Link>
+                )}
                 {playlist && (
                   <a href={playlist.url} target="_blank" rel="noopener"
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold border border-white/15 hover:bg-white/15">

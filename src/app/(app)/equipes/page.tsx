@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { corVisivel } from "@/lib/cores";
 import { EsqueletoLista } from "@/components/ui/Esqueleto";
 import { useAuth } from "@/hooks/useAuth";
-import { getEquipes, createEquipe, updateEquipe, deleteEquipe, getAllUsers, updateUser } from "@/lib/firestore";
+import { getEquipes, createEquipe, updateEquipe, deleteEquipe, getAllUsers, updateUser, obterConviteDaEquipe } from "@/lib/firestore";
 import type { Equipe, AppUser } from "@/lib/types";
 import { primaryRoleLabel, INSTRUMENTO_LABELS } from "@/lib/types";
 import { toast } from "sonner";
@@ -92,7 +92,8 @@ export default function EquipesPage() {
         toast.success("Equipe atualizada!");
       } else {
         const ref = await createEquipe({ ...dados, igrejaId: user?.igrejaId, createdBy: user!.uid });
-        await copiarLink(ref.id, "Equipe criada! Link de acesso copiado.");
+        const nova = { ...dados, id: ref.id, igrejaId: user?.igrejaId, createdBy: user!.uid, createdAt: new Date() } as Equipe;
+        await copiarConvite(nova, "Equipe criada! Link de convite copiado — envie aos músicos.");
       }
       setShowModal(false);
       await load();
@@ -114,13 +115,21 @@ export default function EquipesPage() {
     }
   }
 
-  async function copiarLink(id: string, msg = "Link da equipe copiado!") {
-    const url = `${window.location.origin}/equipes/${id}`;
+  /** Copia o link de convite: quem não tem conta se cadastra e já entra na equipe. */
+  async function copiarConvite(eq: Equipe, msg = "Link de convite copiado — envie aos músicos!") {
+    let url: string;
+    try {
+      const codigo = await obterConviteDaEquipe(eq, user!.uid);
+      url = `${window.location.origin}/convite/${codigo}`;
+    } catch (e) {
+      toast.error(mensagemErro(e, "Só o líder da equipe ou o diretor pode gerar o convite"));
+      return;
+    }
     try {
       await navigator.clipboard.writeText(url);
       toast.success(msg);
     } catch {
-      toast.info(`Link da equipe: ${url}`);
+      toast.info(`Link de convite: ${url}`, { duration: 15000 });
     }
   }
 
@@ -213,8 +222,8 @@ export default function EquipesPage() {
                   {/* Ações */}
                   <div className="flex items-center gap-1 shrink-0">
                     <button
-                      onClick={e => { e.stopPropagation(); copiarLink(eq.id); }}
-                      title="Copiar link da equipe"
+                      onClick={e => { e.stopPropagation(); copiarConvite(eq); }}
+                      title="Copiar link de convite (cadastro na equipe)"
                       className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors"
                     >
                       <Link2 size={15} />

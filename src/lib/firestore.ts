@@ -8,8 +8,9 @@ import { db } from "./firebase";
 import type {
   AppUser, Equipe, Escala, Musica, Notificacao, Igreja,
   PrestacaoPergunta, PrestacaoResposta, PrestacaoControle,
-  UserRole, ConfigRepertorio, PaletaModelo,
+  UserRole, ConfigRepertorio, PaletaModelo, Cifra, Convite, Instrumento, EstadoCivil,
 } from "./types";
+import { idCifra } from "./types";
 
 // ── HELPERS ────────────────────────────────────────────────────────────────────
 function toDate(v: unknown): Date {
@@ -555,4 +556,134 @@ function semIgreja(col: string, data: Record<string, unknown>): boolean {
   if (data.igrejaId) return false;
   if (col === "users" && normalizeRoles(data).includes("super_admin")) return false;
   return true;
+}
+
+// ── CIFRAS ─────────────────────────────────────────────────────────────────────
+function mapCifra(d: { data(): Record<string, unknown> | undefined; id: string }): Cifra {
+  const data = d.data() ?? {};
+  return { ...data, id: d.id, updatedAt: data.updatedAt ? toDate(data.updatedAt) : new Date(0) } as Cifra;
+}
+
+export async function getCifra(musicaId: string, equipeId: string): Promise<Cifra | null> {
+  const snap = await getDoc(doc(db, "cifras", idCifra(musicaId, equipeId)));
+  return snap.exists() ? mapCifra(snap) : null;
+}
+
+/** Cifras de uma música (todas as equipes da igreja). */
+export async function getCifrasDaMusica(musicaId: string, igrejaId?: string): Promise<Cifra[]> {
+  const snap = await getDocs(porIgreja("cifras", igrejaId, where("musicaId", "==", musicaId)));
+  return snap.docs.map(mapCifra);
+}
+
+/** Cifras de uma equipe (para a estante e a importação). */
+export async function getCifrasDaEquipe(equipeId: string, igrejaId?: string): Promise<Cifra[]> {
+  const snap = await getDocs(porIgreja("cifras", igrejaId, where("equipeId", "==", equipeId)));
+  return snap.docs.map(mapCifra);
+}
+
+export type NovaCifra = Pick<Cifra, "musicaId" | "equipeId" | "texto"> &
+  Partial<Pick<Cifra, "equipeName" | "igrejaId" | "tom" | "origem">>;
+
+export async function salvarCifra(c: NovaCifra, autor: { uid: string; name: string }) {
+  await setDoc(doc(db, "cifras", idCifra(c.musicaId, c.equipeId)), {
+    ...clean(c),
+    updatedAt: serverTimestamp(),
+    updatedBy: autor.uid,
+    updatedByName: autor.name,
+  });
+}
+
+/** Grava várias cifras de uma vez (importação). */
+export async function salvarCifrasEmLote(cifras: NovaCifra[], autor: { uid: string; name: string }) {
+  for (let i = 0; i < cifras.length; i += 400) {
+    const batch = writeBatch(db);
+    cifras.slice(i, i + 400).forEach(c => batch.set(doc(db, "cifras", idCifra(c.musicaId, c.equipeId)), {
+      ...clean(c), updatedAt: serverTimestamp(), updatedBy: autor.uid, updatedByName: autor.name,
+    }));
+    await batch.commit();
+  }
+}
+
+export async function excluirCifra(musicaId: string, equipeId: string) {
+  await deleteDoc(doc(db, "cifras", idCifra(musicaId, equipeId)));
+}
+
+// ── CONVITES ───────────────────────────────────────────────────────────────────
+function novoCodigo(): string {
+  const bytes = new Uint8Array(15);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+}
+
+export async function getConvite(codigo: string): Promise<Convite | null> {
+  const snap = await getDoc(doc(db, "convites", codigo));
+  if (!snap.exists()) return null;
+  return { ...snap.data(), id: snap.id, createdAt: toDate(snap.data().createdAt) } as Convite;
+}
+
+/** Devolve o código do convite ativo da equipe, criando um se ainda não existir. */
+export async function obterConviteDaEquipe(equipe: Equipe, uid: string): Promise<string> {
+  if (equipe.conviteId) return equipe.conviteId;
+  return renovarConvite(equipe, uid);
+}
+
+/** Gera um link novo para a equipe e desativa o anterior. */
+export async function renovarConvite(equipe: Equipe, uid: string): Promise<string> {
+  const codigo = novoCodigo();
+  await setDoc(doc(db, "convites", codigo), clean({
+    equipeId: equipe.id, equipeName: equipe.name, igrejaId: equipe.igrejaId,
+    ativo: true, createdBy: uid, createdAt: serverTimestamp(),
+  }));
+  if (equipe.conviteId) {
+    await updateDoc(doc(db, "convites", equipe.conviteId), { ativo: false }).catch(() => {});
+  }
+  await updateDoc(doc(db, "equipes", equipe.id), { conviteId: codigo });
+  return codigo;
+}
+
+/** Usuário logado entra na equipe do convite. */
+export async function entrarNaEquipePorConvite(uid: string, convite: Convite) {
+  await updateDoc(doc(db, "users", uid), { convite: convite.id });
+  await updateDoc(doc(db, "equipes", convite.equipeId), { membros: arrayUnion(uid) });
+}
+
+export interface CadastroConvite {
+  nome: string;
+  email: string;
+  senha: string;
+  telefone?: string;
+  instrumentos: Instrumento[];
+  instrumentoPrincipal?: Instrumento;
+  estadoCivil?: EstadoCivil;
+  celulaNome?: string;
+  liderCelulaNome?: string;
+  liderCelulaTelefone?: string;
+}
+
+/** Músico novo cria a própria conta pelo link e já entra na equipe. */
+export async function cadastrarPorConvite(dados: CadastroConvite, convite: Convite) {
+  const { createUserWithEmailAndPassword, updateProfile } = await import("firebase/auth");
+  const { auth } = await import("./firebase");
+  const cred = await createUserWithEmailAndPassword(auth, dados.email.trim(), dados.senha);
+  await updateProfile(cred.user, { displayName: dados.nome.trim() }).catch(() => {});
+  const principal = dados.instrumentoPrincipal ?? dados.instrumentos[0];
+  await setDoc(doc(db, "users", cred.user.uid), clean({
+    email: dados.email.trim(),
+    name: dados.nome.trim(),
+    roles: ["musico"],
+    igrejaId: convite.igrejaId,
+    telefone: dados.telefone?.trim() || undefined,
+    instrumentos: dados.instrumentos.length ? dados.instrumentos : undefined,
+    instrumento: principal,
+    instrumentoPrincipal: principal,
+    estadoCivil: dados.estadoCivil,
+    celulaNome: dados.celulaNome?.trim() || undefined,
+    liderCelulaNome: dados.liderCelulaNome?.trim() || undefined,
+    liderCelulaTelefone: dados.liderCelulaTelefone?.trim() || undefined,
+    convite: convite.id,
+    ativo: true,
+    createdAt: serverTimestamp(),
+  }));
+  await updateDoc(doc(db, "equipes", convite.equipeId), { membros: arrayUnion(cred.user.uid) });
+  return cred.user.uid;
 }

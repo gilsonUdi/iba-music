@@ -82,11 +82,15 @@ export interface AppUser {
   instrumento?: Instrumento;            // mantido para retrocompat
   instrumentos?: Instrumento[];         // lista completa de instrumentos
   instrumentoPrincipal?: Instrumento;   // instrumento principal (exibição / escalas)
-  liderUid?: string;         // UID do líder de célula (para músicos)
+  liderUid?: string;         // UID do líder de célula (legado: quando o líder tinha conta)
+  celulaNome?: string;          // nome da célula
+  liderCelulaNome?: string;     // nome do líder de célula
+  liderCelulaTelefone?: string; // WhatsApp do líder de célula
   telefone?: string;
   estadoCivil?: EstadoCivil;
   senhaTemporaria?: boolean; // true quando o admin cria o usuário — força troca de senha no 1º login
   favoritas?: string[];      // IDs das músicas favoritas
+  convite?: string;          // último convite usado para entrar numa equipe
   ativo: boolean;
   createdAt: Date;
 }
@@ -216,6 +220,7 @@ export interface Equipe {
   cifraUrl?: string;   // Google Docs com todas as cifras da equipe
   vsUrl?: string;      // OneDrive com os VS (playbacks/stems) da equipe
   cor?: string;        // cor identificadora da equipe (hex)
+  conviteId?: string;  // código do convite ativo (link de cadastro na equipe)
   igrejaId?: string;
   ativo: boolean;
   createdBy: string;
@@ -314,4 +319,32 @@ export function lerDuracao(txt: string): number | undefined {
   const m = t.match(/^(\d{1,2})(?::(\d{1,2}))?$/);
   if (!m) return undefined;
   return Number(m[1]) * 60 + Number(m[2] ?? 0);
+}
+
+// ── CIFRAS (uma por música e por equipe) ──────────────────────────────────────
+export interface Cifra {
+  id: string;            // `${musicaId}__${equipeId}`
+  musicaId: string;
+  equipeId: string;
+  equipeName?: string;
+  igrejaId?: string;
+  texto: string;         // mapa da música (seções, acordes, marcas de tempo)
+  tom?: string;          // tom desta versão (ex.: "D", "D#-")
+  origem?: string;       // de onde veio (ex.: "Google Docs · Cifra EQ - D")
+  updatedAt: Date;
+  updatedBy: string;
+  updatedByName?: string;
+}
+
+export const idCifra = (musicaId: string, equipeId: string) => `${musicaId}__${equipeId}`;
+
+// ── CONVITES (link para o músico se cadastrar direto na equipe) ───────────────
+export interface Convite {
+  id: string;          // código aleatório que vai no link
+  equipeId: string;
+  equipeName: string;
+  igrejaId?: string;
+  ativo: boolean;
+  createdBy: string;
+  createdAt: Date;
 }

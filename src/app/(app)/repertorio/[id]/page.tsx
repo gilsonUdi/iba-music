@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import MusicaCampos, { camposEditaveis, type MusicaForm } from "@/components/musica/MusicaCampos";
+import CifraPainel from "@/components/cifra/CifraPainel";
 import { getYouTubeId, getSpotifyTrackId, getDeezerTrackId, embedSpotify, embedDeezer } from "@/lib/plataformas";
 import { diasSemTocar, textoUltimaVez, usoDasMusicas, type UsoMusica } from "@/lib/estatisticas";
 
@@ -86,6 +87,7 @@ export default function RepertorioDetalhePage() {
   const { user } = useAuth();
   const [musica, setMusica] = useState<Musica | null>(null);
   const [minhasEquipes, setMinhasEquipes] = useState<Equipe[]>([]);
+  const [equipesUsuario, setEquipesUsuario] = useState<Equipe[]>([]);
   const [uso, setUso] = useState<UsoMusica | undefined>();
   const [favorita, setFavoritaState] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -113,10 +115,12 @@ export default function RepertorioDetalhePage() {
         setUso(usoDasMusicas(escalas)[m.id]);
         setFavoritaState(eu?.favoritas?.includes(m.id) ?? false);
         const uid = user!.uid;
-        const equipes = isPastor
+        const verTodas = isPastor || user!.roles?.includes("diretor_musical");
+        const equipes = verTodas
           ? todasEquipes
           : todasEquipes.filter(e => e.membros.includes(uid) || e.liderId === uid);
         setMinhasEquipes(equipes.filter(e => e.cifraUrl || e.vsUrl));
+        setEquipesUsuario(equipes.filter(e => e.ativo !== false));
         if (m.youtubeUrl) setAba("youtube");
         else if (m.spotifyUrl || m.deezerUrl) setAba("ouvir");
         else if (m.cifraUrl || equipes.some(e => e.cifraUrl)) setAba("cifra");
@@ -352,7 +356,7 @@ export default function RepertorioDetalhePage() {
           <div className="flex gap-2 flex-wrap">
             <BotaoAba ativo={aba === "youtube"} tem={!!videoId} cor="bg-red-500" onClick={() => setAba("youtube")}><Youtube size={14} /> YouTube</BotaoAba>
             <BotaoAba ativo={aba === "ouvir"} tem={!!spotifyId || !!deezerId} cor="bg-green-500" onClick={() => setAba("ouvir")}><Disc3 size={14} /> Ouvir</BotaoAba>
-            <BotaoAba ativo={aba === "cifra"} tem={fontesCifra.length > 0} cor="bg-primary-500" onClick={() => setAba("cifra")}><FileText size={14} /> Cifra</BotaoAba>
+            <BotaoAba ativo={aba === "cifra"} tem={fontesCifra.length > 0 || equipesUsuario.length > 0} cor="bg-primary-500" onClick={() => setAba("cifra")}><FileText size={14} /> Cifra</BotaoAba>
             <BotaoAba ativo={aba === "letra"} tem={!!musica.letra} cor="bg-purple-500" onClick={() => setAba("letra")}><Music2 size={14} /> Letra</BotaoAba>
             <BotaoAba ativo={aba === "vs"} tem={fontesVS.length > 0} cor="bg-green-500" onClick={() => setAba("vs")}><Headphones size={14} /> VS</BotaoAba>
             <BotaoAba ativo={aba === "arquivos"} tem={links.length > 0} cor="bg-blue-500" onClick={() => setAba("arquivos")}><Link2 size={14} /> Arquivos</BotaoAba>
@@ -396,40 +400,14 @@ export default function RepertorioDetalhePage() {
               </div>
             ) : <Vazio icone={<Disc3 size={26} className="text-green-300" />} texto="Nenhuma faixa do Spotify ou Deezer adicionada" acao={btnAdicionar("Adicionar faixa")} />)}
 
-            {aba === "cifra" && (cifra ? (
-              <div className="p-4 space-y-3">
-                <SeletorFonte fontes={fontesCifra} sel={cifraSel} setSel={setCifraSel} cor="bg-primary-500" />
-                {cifra.daEquipe && (
-                  <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-2.5">
-                    <Search size={14} className="text-amber-500 shrink-0" />
-                    <span className="text-sm text-amber-700 flex-1 truncate">Arquivo da equipe — procure por <strong>{musica.titulo}</strong></span>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(musica.titulo); toast.success(`"${musica.titulo}" copiado! Use Ctrl+F no documento.`); }}
-                      className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1 rounded-xl transition-colors font-medium shrink-0">
-                      Copiar nome
-                    </button>
-                  </div>
-                )}
-                {getGoogleDocsEmbedUrl(cifra.url) ? (
-                  <>
-                    <iframe src={getGoogleDocsEmbedUrl(cifra.url)!} title={`Cifra — ${cifra.nome}`}
-                      className="w-full rounded-2xl border border-gray-100" style={{ height: "70vh", minHeight: "400px" }} />
-                    <a href={cifra.url} target="_blank" rel="noopener" className="text-xs text-gray-400 hover:text-primary-500 flex items-center gap-1 w-fit">
-                      <ExternalLink size={11} /> Abrir no Google Docs
-                    </a>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
-                    <FileText size={40} className="text-gray-300" />
-                    <p className="text-gray-500 text-sm">Este site não permite exibir a cifra dentro do app.</p>
-                    <a href={cifra.url} target="_blank" rel="noopener" className="btn-primary flex items-center gap-2">
-                      <ExternalLink size={14} /> Abrir cifra
-                    </a>
-                  </div>
-                )}
-              </div>
-            ) : <Vazio icone={<FileText size={26} className="text-primary-300" />} texto="Nenhuma cifra configurada"
-                  sub="Adicione o link da cifra nesta música ou o arquivo geral na página da equipe" acao={btnAdicionar("Adicionar cifra")} />)}
+            {aba === "cifra" && user && (
+              <CifraPainel
+                musica={musica}
+                equipes={equipesUsuario}
+                user={user}
+                linksExternos={fontesCifra.map(f => ({ nome: f.daEquipe ? `Docs da equipe ${f.nome}` : "Link da cifra", url: f.url }))}
+              />
+            )}
 
             {aba === "letra" && (musica.letra ? (
               <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans p-6 overflow-y-auto" style={{ maxHeight: "70vh" }}>{musica.letra}</pre>

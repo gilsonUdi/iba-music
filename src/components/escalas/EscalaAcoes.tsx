@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { FileDown, Printer, Youtube, MessageCircle, Copy } from "lucide-react";
+import { FileDown, Printer, Youtube, MessageCircle, Copy, Maximize2 } from "lucide-react";
 import type { Escala } from "@/lib/types";
 import {
   baixarTexto, letrasParaProjecao, linkWhatsapp, mensagemEscalado, mensagemGrupo,
@@ -37,6 +37,11 @@ export default function EscalaAcoes({ escala, itens }: { escala: Escala; itens: 
 
   return (
     <div className="flex flex-wrap gap-2">
+      {itens.length > 0 && (
+        <Link href={`/estante?escala=${escala.id}`} className={`${btn} border-primary-200 text-white bg-primary-500 hover:brightness-110`}>
+          <Maximize2 size={13} /> Estante
+        </Link>
+      )}
       <Link href={`/escalas/${escala.id}/imprimir`} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-100`}>
         <Printer size={13} /> Imprimir / PDF
       </Link>

@@ -63,6 +63,14 @@ service cloud.firestore {
 
     function docRoles(d) { return d.get("roles", [d.get("role", "musico")]); }
 
+    function conviteDoc(codigo) { return /databases/$(database)/documents/convites/$(codigo); }
+    function conviteValido(codigo) {
+      return codigo is string && exists(conviteDoc(codigo)) && get(conviteDoc(codigo)).data.ativo == true;
+    }
+    function lideraEquipe(equipeId) {
+      return get(/databases/$(database)/documents/equipes/$(equipeId)).data.get("liderId", "") == uid();
+    }
+
     // Período de carga inicial: líderes cadastram músicas já aprovadas
     function liberacaoDireta() {
       let cfg = /databases/$(database)/documents/configuracoes/repertorio;
@@ -86,6 +94,14 @@ service cloud.firestore {
         || resource.data.get("role", "") in ["pastor", "diretor_musical"]
       );
 
+      // Cadastro pelo link de convite: a própria pessoa, só como músico, na igreja do convite
+      allow create: if isAuth() && uid() == userId
+        && request.resource.data.roles == ["musico"]
+        && conviteValido(request.resource.data.get("convite", null))
+        && request.resource.data.get("igrejaId", null) == get(conviteDoc(request.resource.data.convite)).data.get("igrejaId", null)
+        && request.resource.data.get("ativo", false) == true
+        && !request.resource.data.keys().hasAny(["liderUid", "senhaTemporaria"]);
+
       // Cadastro: só atribui papéis do próprio nível para baixo, sempre na própria igreja
       allow create: if isLiderEquipe()
         && sameIgrejaNew()
@@ -106,7 +122,9 @@ service cloud.firestore {
           uid() == userId
           && changed().hasOnly(["name", "telefone", "estadoCivil", "instrumento",
                                 "instrumentos", "instrumentoPrincipal", "senhaTemporaria",
-                                "favoritas"])
+                                "favoritas", "convite", "celulaNome", "liderCelulaNome",
+                                "liderCelulaTelefone"])
+          && (!("convite" in request.resource.data) || conviteValido(request.resource.data.convite))
           && request.resource.data.get("senhaTemporaria", false) == false
         );
 
@@ -122,6 +140,15 @@ service cloud.firestore {
       // Líder de equipe só altera a equipe que lidera; Diretor/Pastor alteram todas
       allow update: if sameIgreja(resource.data) && keepsIgreja() && (
         isDiretor() || (isLiderEquipe() && resource.data.get("liderId", null) == uid())
+        // Entrar pelo convite: só se incluir na lista de membros, com o convite ativo da equipe
+        || (
+          changed().hasOnly(["membros"])
+          && request.resource.data.membros.toSet().difference(resource.data.get("membros", []).toSet()).hasOnly([uid()])
+          && resource.data.get("membros", []).toSet().difference(request.resource.data.membros.toSet()).size() == 0
+          && resource.data.get("conviteId", "") != ""
+          && userData().get("convite", "") == resource.data.conviteId
+          && conviteValido(resource.data.conviteId)
+        )
       );
       allow delete: if isPastor() && sameIgreja(resource.data);
     }
@@ -166,6 +193,37 @@ service cloud.firestore {
     match /repertorios_equipe/{equipeId} {
       allow read:  if isMembro();
       allow write: if isLiderEquipe() && sameIgrejaNew();
+    }
+
+    // ───── Cifras (uma por música e por equipe) ───────────────────
+    // Diretor/Pastor editam todas; líder de equipe edita as da equipe que lidera.
+    function podeEditarCifra(equipeId) {
+      return isDiretor()
+        || (isLiderEquipe()
+            && get(/databases/$(database)/documents/equipes/$(equipeId)).data.get("liderId", "") == uid());
+    }
+    match /cifras/{cifraId} {
+      allow read:   if isMembro() && sameIgreja(resource.data);
+      allow create: if sameIgrejaNew()
+        && cifraId == request.resource.data.musicaId + "__" + request.resource.data.equipeId
+        && request.resource.data.texto is string
+        && podeEditarCifra(request.resource.data.equipeId);
+      allow update: if sameIgreja(resource.data) && keepsIgreja()
+        && request.resource.data.musicaId == resource.data.musicaId
+        && request.resource.data.equipeId == resource.data.equipeId
+        && podeEditarCifra(resource.data.equipeId);
+      allow delete: if sameIgreja(resource.data) && podeEditarCifra(resource.data.equipeId);
+    }
+
+    // ───── Convites (link de cadastro na equipe) ──────────────────
+    // Leitura por código para quem ainda não tem conta; listar é proibido.
+    match /convites/{codigo} {
+      allow get:    if true;
+      allow list:   if false;
+      allow create: if sameIgrejaNew() && (isDiretor() || (isLiderEquipe() && lideraEquipe(request.resource.data.equipeId)));
+      allow update: if sameIgreja(resource.data) && keepsIgreja()
+        && (isDiretor() || (isLiderEquipe() && lideraEquipe(resource.data.equipeId)))
+        && changed().hasOnly(["ativo"]);
     }
 
     // ───── Configurações gerais ───────────────────────────────────

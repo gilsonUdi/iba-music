@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -21,6 +21,11 @@ type FormData = z.infer<typeof schema>;
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  // Veio pelo link antigo da equipe (sem conta ainda)? Mostra a dica do convite.
+  const [veioDeEquipe, setVeioDeEquipe] = useState(false);
+  useEffect(() => {
+    setVeioDeEquipe(new URLSearchParams(window.location.search).get("next")?.startsWith("/equipes/") ?? false);
+  }, []);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
@@ -104,6 +109,11 @@ export default function LoginPage() {
           </form>
         </div>
 
+        {veioDeEquipe && (
+          <p className="text-center text-sm text-amber-600 mt-4">
+            Ainda não tem conta? Peça ao líder da equipe o <strong>link de convite</strong> para fazer seu cadastro.
+          </p>
+        )}
         <p className="text-center text-gray-400 text-sm mt-6">
           Não tem acesso? Fale com o seu pastor.
         </p>

@@ -29,7 +29,11 @@ export default function LoginPage() {
     try {
       const cred = await signIn(data.email, data.password);
       const appUser = await getUser(cred.uid);
-      const dest = appUser?.senhaTemporaria ? "/alterar-senha" : "/dashboard";
+      // ?next= traz a pessoa de volta à página que abriu (ex.: link da equipe).
+      // Só aceita caminhos internos ("/..." mas não "//..." nem "/\\...").
+      const next = new URLSearchParams(window.location.search).get("next") ?? "";
+      const interno = next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\");
+      const dest = appUser?.senhaTemporaria ? "/alterar-senha" : interno ? next : "/dashboard";
       window.location.replace(dest);
     } catch {
       toast.error("E-mail ou senha incorretos");

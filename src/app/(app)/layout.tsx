@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { href: "/igrejas",     label: "Igrejas",             shortLabel: "Igrejas",    icon: Building2,       roles: ["super_admin"] },
   { href: "/dashboard",   label: "Dashboard",           shortLabel: "Início",     icon: LayoutDashboard, roles: ["super_admin", "pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
   { href: "/membros",     label: "Membros",             shortLabel: "Membros",    icon: Users,           roles: ["pastor", "diretor_musical", "lider_equipe"] },
-  { href: "/equipes",     label: "Equipes",             shortLabel: "Equipes",    icon: Users2,          roles: ["pastor", "diretor_musical", "lider_equipe"] },
+  { href: "/equipes",     label: "Equipes",             shortLabel: "Equipes",    icon: Users2,          roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
   { href: "/escalas",     label: "Escalas",             shortLabel: "Escalas",    icon: Calendar,        roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
   { href: "/repertorio",  label: "Repertório",          shortLabel: "Repertório", icon: Library,         roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
   { href: "/notificacoes",label: "Notificações",        shortLabel: "Avisos",     icon: Bell,            roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
@@ -33,7 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
     if (!loading && user?.senhaTemporaria && pathname !== "/alterar-senha") {
       router.replace("/alterar-senha");
     }
@@ -62,10 +62,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface">
+    <div className="flex h-screen overflow-hidden bg-surface print:block print:h-auto print:overflow-visible print:bg-white">
 
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex flex-col w-64 shrink-0"
+      <aside className="hidden md:flex flex-col w-64 shrink-0 print:!hidden"
         style={{ background: "linear-gradient(160deg, #12082e 0%, #1e0a4a 60%, #180d3a 100%)" }}>
         <div className="flex flex-col h-full px-4 py-6">
 
@@ -142,10 +142,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Main Content ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden print:block print:overflow-visible">
 
         {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 shrink-0"
+        <header className="md:hidden flex items-center justify-between px-4 py-3 shrink-0 print:!hidden"
           style={{ background: "linear-gradient(135deg, #12082e, #1e0a4a)" }}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
@@ -160,12 +160,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-28 md:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-28 md:pb-6 print:p-0 print:overflow-visible">
           {children}
         </main>
 
         {/* ── Mobile Bottom Navigation ── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white z-40"
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white z-40 print:!hidden"
           style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.10)", borderTop: "1px solid rgba(124,58,237,0.08)" }}>
           <div className="flex items-center justify-around px-1 pt-2 pb-3">
             {mobileMain.map(({ href, shortLabel, icon: Icon }) => {

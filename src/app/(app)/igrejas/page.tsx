@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { getIgrejas, createIgreja, updateIgreja, getAllUsers } from "@/lib/firestore";
+import { getIgrejas, createIgreja, updateIgreja, getAllUsers, contarSemIgreja, vincularSemIgreja } from "@/lib/firestore";
+import { mensagemErro } from "@/lib/errors";
 import { registerUser } from "@/lib/auth";
 import type { Igreja, AppUser } from "@/lib/types";
 import { ROLE_LABELS } from "@/lib/types";
@@ -39,15 +40,52 @@ export default function IgrejasPage() {
 
   const isSuperAdmin = user?.roles?.includes("super_admin");
 
+  // Migração de registros antigos sem igrejaId
+  const [semIgreja, setSemIgreja] = useState<Record<string, number> | null>(null);
+  const [igrejaMigracao, setIgrejaMigracao] = useState("");
+  const [migrando, setMigrando] = useState(false);
+  const totalSemIgreja = semIgreja ? Object.values(semIgreja).reduce((a, b) => a + b, 0) : 0;
+
+  async function verificarSemIgreja() {
+    try {
+      setSemIgreja(await contarSemIgreja());
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao verificar registros"));
+    }
+  }
+
+  async function handleMigrar() {
+    const alvo = igrejas.find(i => i.id === igrejaMigracao);
+    if (!alvo) { toast.error("Selecione a igreja"); return; }
+    if (!confirm(`Vincular ${totalSemIgreja} registro(s) sem igreja à "${alvo.name}"?`)) return;
+    setMigrando(true);
+    try {
+      const n = await vincularSemIgreja(alvo.id);
+      toast.success(`${n} registro(s) vinculados à ${alvo.name}`);
+      await verificarSemIgreja();
+      await load();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro na migração"));
+    } finally {
+      setMigrando(false);
+    }
+  }
+
   async function load() {
     setLoading(true);
-    const [ig, mb] = await Promise.all([getIgrejas(), getAllUsers()]);
-    setIgrejas(ig);
-    setMembros(mb);
-    setLoading(false);
+    try {
+      const [ig, mb] = await Promise.all([getIgrejas(), getAllUsers()]);
+      setIgrejas(ig);
+      setMembros(mb);
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao carregar as igrejas"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (isSuperAdmin) verificarSemIgreja(); }, [isSuperAdmin]);
 
   if (!isSuperAdmin) {
     return (
@@ -162,6 +200,32 @@ export default function IgrejasPage() {
           <p className="text-xs text-gray-500 mt-1">Usuários totais</p>
         </div>
       </div>
+
+      {/* Migração: registros antigos sem igreja */}
+      {semIgreja && totalSemIgreja > 0 && (
+        <div className="card p-4 border border-amber-200 bg-amber-50 space-y-3">
+          <div>
+            <p className="font-semibold text-amber-800">
+              {totalSemIgreja} registro(s) antigos sem igreja vinculada
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              {Object.entries(semIgreja).filter(([, n]) => n > 0).map(([c, n]) => `${c}: ${n}`).join(" · ")}
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              Pelas novas regras de segurança, só o Super Admin enxerga esses registros. Vincule-os a uma igreja.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select value={igrejaMigracao} onChange={e => setIgrejaMigracao(e.target.value)} className="input flex-1">
+              <option value="">Selecione a igreja…</option>
+              {igrejas.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+            <button onClick={handleMigrar} disabled={migrando || !igrejaMigracao} className="btn-primary">
+              {migrando ? "Vinculando…" : "Vincular registros"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Lista de igrejas */}
       {loading ? (

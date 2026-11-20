@@ -10,6 +10,7 @@ import {
   type AppUser, type Instrumento, type UserRole, type EstadoCivil,
 } from "@/lib/types";
 import { toast } from "sonner";
+import { mensagemErro } from "@/lib/errors";
 import {
   Users, Users2, Plus, Search, Pencil, ToggleLeft, ToggleRight, X, Mail, Phone, UserCheck, Star,
 } from "lucide-react";
@@ -61,17 +62,22 @@ export default function MembrosPage() {
 
   async function loadUsers() {
     setLoading(true);
-    const [data, equipes] = await Promise.all([
-      getAllUsers(user?.igrejaId),
-      getEquipes(user?.igrejaId),
-    ]);
-    setUsers(data);
-    // Líder de equipe: descobre qual equipe ele lidera
-    if (user?.roles?.includes("lider_equipe") && !user?.roles?.includes("pastor")) {
-      const eq = equipes.find(e => e.liderId === user.uid) ?? null;
-      setMinhaEquipe(eq);
+    try {
+      const [data, equipes] = await Promise.all([
+        getAllUsers(user?.igrejaId),
+        getEquipes(user?.igrejaId),
+      ]);
+      setUsers(data);
+      // Líder de equipe: descobre qual equipe ele lidera
+      if (user?.roles?.includes("lider_equipe") && !user?.roles?.includes("pastor")) {
+        const eq = equipes.find(e => e.liderId === user.uid) ?? null;
+        setMinhaEquipe(eq);
+      }
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao carregar os membros"));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => { loadUsers(); }, []);
@@ -163,19 +169,20 @@ export default function MembrosPage() {
       setShowModal(false);
       await loadUsers();
     } catch (e: unknown) {
-      const msg = (e as { code?: string })?.code === "auth/email-already-in-use"
-        ? "E-mail já cadastrado"
-        : "Erro ao salvar membro";
-      toast.error(msg);
+      toast.error(mensagemErro(e, "Erro ao salvar membro"));
     } finally {
       setSaving(false);
     }
   }
 
   async function toggleAtivo(u: AppUser) {
-    await updateUser(u.uid, { ativo: !u.ativo });
-    toast.success(u.ativo ? "Membro desativado" : "Membro ativado");
-    await loadUsers();
+    try {
+      await updateUser(u.uid, { ativo: !u.ativo });
+      toast.success(u.ativo ? "Membro desativado" : "Membro ativado");
+      await loadUsers();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao alterar o membro"));
+    }
   }
 
   const isPastor = user?.roles?.includes("pastor");

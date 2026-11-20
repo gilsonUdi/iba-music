@@ -23,110 +23,213 @@ service cloud.firestore {
     // igrejaId do usuário autenticado
     function myIgrejaId() { return userData().get("igrejaId", null); }
 
-    // Verifica se um documento existente pertence à mesma igreja do usuário.
-    // Super admin passa sempre. Documentos sem igrejaId passam (retrocompat.).
+    // Documento existente pertence à igreja do usuário.
+    // Usuário sem igreja (que não seja super admin) não acessa nada de igreja.
+    // Documentos antigos sem igrejaId devem ser migrados (tela Igrejas → super admin).
     function sameIgreja(docData) {
-      let docIgreja = docData.get("igrejaId", null);
-      let myIgreja  = myIgrejaId();
-      // Passa se: super_admin, doc sem igrejaId, usuário sem igrejaId (legado), ou mesma igreja
-      return isSuperAdmin() || docIgreja == null || myIgreja == null || docIgreja == myIgreja;
+      return isSuperAdmin()
+        || (myIgrejaId() != null && docData.get("igrejaId", null) == myIgrejaId());
     }
 
-    // Verifica se o documento que está sendo criado/escrito pertence à mesma
-    // igreja do usuário (usa request.resource.data em vez de resource.data).
+    // Documento sendo criado/escrito pertence à igreja do usuário.
     function sameIgrejaNew() {
-      let docIgreja = request.resource.data.get("igrejaId", null);
-      return isSuperAdmin() || docIgreja == null || docIgreja == myIgrejaId();
+      return isSuperAdmin()
+        || (myIgrejaId() != null && request.resource.data.get("igrejaId", null) == myIgrejaId());
+    }
+
+    // Em updates: igrejaId não pode ser trocado (exceto super admin)
+    function keepsIgreja() {
+      return isSuperAdmin()
+        || request.resource.data.get("igrejaId", null) == resource.data.get("igrejaId", null);
+    }
+
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // Papéis que o usuário autenticado pode atribuir/gerenciar
+    function grantableRoles() {
+      let r = userRoles();
+      return r.hasAny(["super_admin"])
+        ? ["super_admin", "pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"]
+        : r.hasAny(["pastor"])
+        ? ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"]
+        : r.hasAny(["diretor_musical"])
+        ? ["lider_equipe", "lider_celula", "musico"]
+        : r.hasAny(["lider_equipe"])
+        ? ["musico"]
+        : [];
+    }
+
+    function docRoles(d) { return d.get("roles", [d.get("role", "musico")]); }
+
+    // Período de carga inicial: líderes cadastram músicas já aprovadas
+    function liberacaoDireta() {
+      let cfg = /databases/$(database)/documents/configuracoes/repertorio;
+      return exists(cfg) && get(cfg).data.get("liberacaoDireta", false) == true;
     }
 
     // ───── Igrejas ────────────────────────────────────────────────
-    // Super admin gerencia igrejas; pastores podem ler (client filtra a deles)
     match /igrejas/{igrejaId} {
-      allow read:              if isPastor();
-      allow create, update:    if isSuperAdmin();
-      allow delete:            if isSuperAdmin();
+      allow read:                   if isPastor();
+      allow create, update, delete: if isSuperAdmin();
     }
 
     // ───── Users ──────────────────────────────────────────────────
     match /users/{userId} {
-      // Membros leem usuários da mesma igreja, o próprio perfil,
-      // ou qualquer pastor/diretor (necessário para contagem de votos no repertório compartilhado)
-      allow read:   if isMembro() && (
+      allow read: if isMembro() && (
         uid() == userId
         || sameIgreja(resource.data)
+        || resource.data.get("liderUid", null) == uid()
+        // pastores/diretores de todas as igrejas (votação do repertório compartilhado)
         || resource.data.get("roles", []).hasAny(["pastor", "diretor_musical"])
         || resource.data.get("role", "") in ["pastor", "diretor_musical"]
       );
-      // Pastor, Diretor e Líder de Equipe cadastram membros; igrejaId do novo doc deve ser o mesmo
-      allow create: if isLiderEquipe() && sameIgrejaNew();
-      // Pastor/Diretor atualizam membros; membro atualiza o próprio perfil
-      allow update: if (isDiretor() && sameIgreja(resource.data)) || uid() == userId;
-      allow delete: if isPastor() && sameIgreja(resource.data);
+
+      // Cadastro: só atribui papéis do próprio nível para baixo, sempre na própria igreja
+      allow create: if isLiderEquipe()
+        && sameIgrejaNew()
+        && request.resource.data.roles is list
+        && request.resource.data.roles.size() > 0
+        && request.resource.data.roles.hasOnly(grantableRoles());
+
+      // Gestão por Pastor/Diretor: alvo e novos papéis dentro do nível de quem edita
+      allow update: if (
+          isDiretor()
+          && sameIgreja(resource.data)
+          && keepsIgreja()
+          && docRoles(resource.data).hasOnly(grantableRoles())
+          && docRoles(request.resource.data).hasOnly(grantableRoles())
+        )
+        // Próprio perfil: apenas dados pessoais; senhaTemporaria só pode ir para false
+        || (
+          uid() == userId
+          && changed().hasOnly(["name", "telefone", "estadoCivil", "instrumento",
+                                "instrumentos", "instrumentoPrincipal", "senhaTemporaria",
+                                "favoritas"])
+          && request.resource.data.get("senhaTemporaria", false) == false
+        );
+
+      allow delete: if isPastor()
+        && sameIgreja(resource.data)
+        && docRoles(resource.data).hasOnly(grantableRoles());
     }
 
     // ───── Equipes ────────────────────────────────────────────────
     match /equipes/{equipeId} {
-      allow read:           if isMembro() && sameIgreja(resource.data);
-      allow create:         if isLiderEquipe() && sameIgrejaNew();
-      allow update:         if isLiderEquipe() && sameIgreja(resource.data);
-      allow delete:         if isPastor() && sameIgreja(resource.data);
+      allow read:   if isMembro() && sameIgreja(resource.data);
+      allow create: if isLiderEquipe() && sameIgrejaNew();
+      // Líder de equipe só altera a equipe que lidera; Diretor/Pastor alteram todas
+      allow update: if sameIgreja(resource.data) && keepsIgreja() && (
+        isDiretor() || (isLiderEquipe() && resource.data.get("liderId", null) == uid())
+      );
+      allow delete: if isPastor() && sameIgreja(resource.data);
     }
 
     // ───── Escalas ────────────────────────────────────────────────
     match /escalas/{escalaId} {
-      allow read:           if isMembro() && sameIgreja(resource.data);
-      allow create:         if isLiderEquipe() && sameIgrejaNew();
-      allow update, delete: if isLiderEquipe() && sameIgreja(resource.data);
+      allow read:   if isMembro() && sameIgreja(resource.data);
+      allow create: if isLiderEquipe() && sameIgrejaNew();
+      allow update: if sameIgreja(resource.data) && (
+        (isLiderEquipe() && keepsIgreja())
+        // Membro confirma/recusa apenas a própria presença (mapa confirmacoes.{uid})
+        || (
+          changed().hasOnly(["confirmacoes"])
+          && request.resource.data.confirmacoes.diff(resource.data.get("confirmacoes", {}))
+               .affectedKeys().hasOnly([uid()])
+          && request.resource.data.confirmacoes[uid()] is bool
+        )
+      );
+      allow delete: if isLiderEquipe() && sameIgreja(resource.data);
     }
 
     // ───── Músicas ────────────────────────────────────────────────
     // Repertório é compartilhado entre todas as igrejas — qualquer membro autenticado lê
     match /musicas/{musicaId} {
-      allow read:                   if isMembro();
-      allow create:                 if isLiderEquipe() && sameIgrejaNew();
-      allow update:                 if (isLiderEquipe() && sameIgreja(resource.data)) || isPastor();
-      allow delete:                 if isLiderEquipe() && sameIgreja(resource.data);
+      allow read:   if isMembro();
+      // Só pastor cadastra música já aprovada; demais entram como pendente
+      allow create: if isLiderEquipe() && sameIgrejaNew() && (
+        isPastor()
+        || request.resource.data.get("status", "") == "pendente"
+        || (request.resource.data.get("status", "") == "aprovada" && liberacaoDireta())
+      );
+      allow update: if isPastor()
+        || (
+          isLiderEquipe() && sameIgreja(resource.data) && keepsIgreja()
+          && !changed().hasAny(["status", "votos", "mediaVotos", "aprovadoPor",
+                                "aprovadoEm", "aprovacaoComentario", "createdBy", "ativo"])
+        );
+      allow delete: if isLiderEquipe() && sameIgreja(resource.data);
     }
 
     // ───── Repertório da Equipe ───────────────────────────────────
     match /repertorios_equipe/{equipeId} {
-      allow read:           if isMembro();
-      allow write:          if isLiderEquipe() || isPastor();
+      allow read:  if isMembro();
+      allow write: if isLiderEquipe() && sameIgrejaNew();
+    }
+
+    // ───── Configurações gerais ───────────────────────────────────
+    match /configuracoes/{configId} {
+      allow read:  if isMembro();
+      allow write: if isPastor();
+    }
+
+    // ───── Modelos de paleta de cores ─────────────────────────────
+    match /paletas_modelo/{paletaId} {
+      allow read:   if isMembro() && sameIgreja(resource.data);
+      allow create: if isLiderEquipe() && sameIgrejaNew();
+      allow delete: if isLiderEquipe() && sameIgreja(resource.data);
     }
 
     // ───── Notificações ───────────────────────────────────────────
     match /notificacoes/{notifId} {
       allow read:   if isMembro() && sameIgreja(resource.data);
       allow create: if (isLiderEquipe() || isLiderCelula()) && sameIgrejaNew();
-      allow update: if isMembro() && sameIgreja(resource.data); // marcar como lida
+      // Membro só marca a si mesmo como leitor
+      allow update: if isMembro() && sameIgreja(resource.data)
+        && changed().hasOnly(["lidos"])
+        && request.resource.data.lidos.toSet().difference(resource.data.lidos.toSet()).hasOnly([uid()])
+        && resource.data.lidos.toSet().difference(request.resource.data.lidos.toSet()).size() == 0;
       allow delete: if isPastor() && sameIgreja(resource.data);
     }
 
     // ───── Prestação — Perguntas ──────────────────────────────────
     match /prestacao_perguntas/{perguntaId} {
-      allow read:                   if isMembro() && sameIgreja(resource.data);
-      allow create:                 if isPastor() && sameIgrejaNew();
-      allow update, delete:         if isPastor() && sameIgreja(resource.data);
+      allow read:           if isMembro() && sameIgreja(resource.data);
+      allow create:         if isPastor() && sameIgrejaNew();
+      allow update, delete: if isPastor() && sameIgreja(resource.data) && keepsIgreja();
     }
 
     // ───── Prestação — Respostas ──────────────────────────────────
-    // Leitura restrita: apenas o próprio músico, seu líder de célula e pastores
+    // Leitura restrita: o próprio músico e o líder de célula vinculado
     match /prestacao_respostas/{respostaId} {
       allow read: if isMembro() && (
         resource == null                     // doc ainda não existe (getDoc retorna vazio)
-        || (sameIgreja(resource.data) && (
-          uid() == resource.data.uid         // próprio músico (histórico pessoal)
-          || uid() == resource.data.liderUid // líder de célula vinculado ao membro
-        ))
+        || uid() == resource.data.uid
+        || uid() == resource.data.liderUid
       );
-      allow create, update: if isMembro() && uid() == request.resource.data.uid;
-      allow delete:         if isPastor() && sameIgreja(resource.data);
+      // Músico só grava a própria resposta, com o líder que está no seu cadastro
+      allow create, update: if isMembro()
+        && uid() == request.resource.data.uid
+        && respostaId == uid() + "_" + request.resource.data.mes
+        && request.resource.data.liderUid == userData().get("liderUid", "");
+      allow delete: if isPastor();
     }
 
     // ───── Prestação — Controle mensal ────────────────────────────
     match /prestacao_controle/{mes} {
-      allow read, create, update: if isMembro();
-      allow delete:               if isPastor();
+      allow read: if isMembro();
+      // Líder de célula/pastor inicializa e ajusta o controle do mês
+      allow create, update: if isLiderCelula();
+      // Membro apenas se inclui na lista de quem respondeu
+      allow create: if isMembro()
+        && request.resource.data.keys().hasOnly(["mes", "prazo", "responderam"])
+        && request.resource.data.responderam == [uid()];
+      allow update: if isMembro()
+        && changed().hasOnly(["responderam"])
+        && request.resource.data.responderam.toSet().difference(resource.data.get("responderam", []).toSet()).hasOnly([uid()])
+        && resource.data.get("responderam", []).toSet().difference(request.resource.data.responderam.toSet()).size() == 0;
+      allow delete: if isPastor();
     }
   }
 }

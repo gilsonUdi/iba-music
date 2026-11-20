@@ -41,7 +41,7 @@ export default function RelatorioPage() {
     setLoading(true);
     try {
       const [perg, resp, mus] = await Promise.all([
-        getPrestacaoPerguntas(),
+        getPrestacaoPerguntas(user!.igrejaId),
         getRespostasByLider(user!.uid, mesAtual),
         getMusicosByLider(user!.uid),
       ]);

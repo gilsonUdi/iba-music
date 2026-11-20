@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { usuarioAutenticado, termoBusca, type ResultadoBusca } from "@/lib/server/auth";
 
 export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get("q");
+  const q = termoBusca(req);
   if (!q) return NextResponse.json({ items: [] });
+
+  if (!(await usuarioAutenticado(req))) {
+    return NextResponse.json({ error: "Faça login para buscar no YouTube" }, { status: 401 });
+  }
 
   const key = process.env.YOUTUBE_API_KEY;
   if (!key || key === "cole_sua_chave_aqui") {
@@ -17,13 +22,13 @@ export async function GET(req: NextRequest) {
 
   const data = await res.json();
 
-  const items = (data.items ?? []).map((item: {
+  const items: ResultadoBusca[] = (data.items ?? []).map((item: {
     id: { videoId: string };
     snippet: { title: string; channelTitle: string; thumbnails: { default: { url: string } } };
   }) => ({
-    videoId:  item.id.videoId,
+    id:       item.id.videoId,
     title:    item.snippet.title,
-    channel:  item.snippet.channelTitle,
+    subtitle: item.snippet.channelTitle,
     thumb:    item.snippet.thumbnails.default.url,
     url:      `https://www.youtube.com/watch?v=${item.id.videoId}`,
   }));

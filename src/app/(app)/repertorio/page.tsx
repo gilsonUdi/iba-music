@@ -1,29 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getMusicas, createMusica, getMusicasPendentes, getMusicasByLider,
   getAllPastores, votarMusica, getRepertorioEquipe, setRepertorioEquipe,
-  getEquipesByLider,
+  getEquipes, getEscalas, getUser, setFavorita, getConfigRepertorio, setLiberacaoDireta,
 } from "@/lib/firestore";
-import type { Musica, TomMusical, MusicaStatus, AppUser } from "@/lib/types";
+import { formatarDuracao, type Musica, type MusicaStatus, type Equipe } from "@/lib/types";
 import { toast } from "sonner";
+import { mensagemErro } from "@/lib/errors";
 import {
-  Library, Plus, Search, X, Music2, Youtube, Clock,
-  CheckCircle2, XCircle, Star, Users2, BookMarked, ChevronDown, ChevronUp,
-  AlertCircle, Check, Bookmark, BookmarkCheck,
+  Library, Plus, Search, X, Music2, Clock,
+  CheckCircle2, XCircle, Star, BookMarked, ChevronDown, ChevronUp,
+  AlertCircle, Bookmark, BookmarkCheck, History, Timer, EyeOff, BarChart3, Unlock, Lock,
 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import clsx from "clsx";
-import YoutubeSearch from "@/components/YoutubeSearch";
+import MusicaCampos, { camposEditaveis, type MusicaForm } from "@/components/musica/MusicaCampos";
+import { diasSemTocar, textoUltimaVez, usoDasMusicas, type UsoMusica } from "@/lib/estatisticas";
 
-const TONS: TomMusical[] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-const EMPTY: Omit<Musica, "id" | "createdAt" | "createdBy"> = {
-  titulo: "", artista: "", tom: "G", bpm: undefined, letra: "", youtubeUrl: "", tags: [], ativo: true,
+const EMPTY: MusicaForm = {
+  titulo: "", artista: "", tom: "G", letra: "", tags: [], links: [], ativo: true,
 };
 
 // ── Estrelas ───────────────────────────────────────────────────────────────────
@@ -313,71 +312,153 @@ function CardSubmissao({ musica, totalPastores }: { musica: Musica; totalPastore
   );
 }
 
+// ── Card de música (lista) ─────────────────────────────────────────────────────
+function CardMusica({
+  m, uso, favorita, noRepertorio, podeMarcarRepertorio, onFavorita, onRepertorio, onAbrir,
+}: {
+  m: Musica;
+  uso?: UsoMusica;
+  favorita: boolean;
+  noRepertorio: boolean;
+  podeMarcarRepertorio: boolean;
+  onFavorita: () => void;
+  onRepertorio: () => void;
+  onAbrir: () => void;
+}) {
+  const dias = diasSemTocar(uso);
+  return (
+    <div className={clsx("card p-4 hover:shadow-md transition-shadow", m.ativo === false && "opacity-60")}>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={onAbrir}>
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
+              <Music2 size={16} className="text-purple-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-gray-900 truncate text-sm">{m.titulo}</p>
+              <p className="text-xs text-gray-500 truncate">{m.artista}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-2 ml-11 flex-wrap">
+            <span className="badge bg-primary-50 text-primary-600 font-bold text-xs">{m.tom}</span>
+            {m.bpm && <span className="text-xs text-gray-400">{m.bpm} BPM</span>}
+            {m.duracaoSeg && <span className="text-xs text-gray-400 flex items-center gap-0.5"><Timer size={10} />{formatarDuracao(m.duracaoSeg)}</span>}
+            <span className={clsx("text-xs flex items-center gap-0.5",
+              dias === undefined ? "text-gray-400" : dias > 60 ? "text-amber-600" : "text-gray-400")}>
+              <History size={10} /> {textoUltimaVez(dias)}
+            </span>
+            {m.ativo === false && <span className="badge bg-gray-100 text-gray-500 text-[10px]"><EyeOff size={9} /> Retirada</span>}
+          </div>
+        </div>
+        <button onClick={onFavorita} title={favorita ? "Remover das favoritas" : "Favoritar"}
+          className={clsx("p-2 rounded-xl transition-colors shrink-0", favorita ? "text-amber-500" : "text-gray-300 hover:text-amber-400")}>
+          <Star size={17} fill={favorita ? "currentColor" : "none"} />
+        </button>
+        {podeMarcarRepertorio && (
+          <button onClick={onRepertorio}
+            title={noRepertorio ? "Remover do repertório da equipe" : "Adicionar ao repertório da equipe"}
+            className={clsx("p-2 rounded-xl transition-colors shrink-0",
+              noRepertorio ? "bg-primary-100 text-primary-600 hover:bg-primary-200" : "text-gray-300 hover:bg-gray-100 hover:text-primary-400")}>
+            {noRepertorio ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ───────────────────────────────────────────────────────────
+type Tab = "geral" | "equipe" | "votar" | "submissoes";
+type Filtro = { tipo: "todas" } | { tipo: "favoritas" } | { tipo: "naoTocadas" } | { tipo: "retiradas" } | { tipo: "tag"; tag: string };
+
 export default function RepertorioPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const isPastor      = user?.roles?.includes("pastor") ?? false;
+  const isPastor      = (user?.roles?.includes("pastor") || user?.roles?.includes("super_admin")) ?? false;
   const isDiretor     = (user?.roles?.includes("diretor_musical") && !isPastor) ?? false;
   const isLiderEquipe = (user?.roles?.includes("lider_equipe") && !isPastor && !isDiretor) ?? false;
+  const podeCadastrar = isPastor || isDiretor || isLiderEquipe;
 
-  type Tab = "geral" | "votar" | "submissoes" | "meu";
   const [tab, setTab] = useState<Tab>("geral");
-
-  const [musicas,      setMusicas]      = useState<Musica[]>([]);
-  const [pendentes,    setPendentes]    = useState<Musica[]>([]);
-  const [minhas,       setMinhas]       = useState<Musica[]>([]);
-  const [meuRepertorio, setMeuRepertorio] = useState<string[]>([]);
+  const [musicas,       setMusicas]       = useState<Musica[]>([]);
+  const [pendentes,     setPendentes]     = useState<Musica[]>([]);
+  const [minhas,        setMinhas]        = useState<Musica[]>([]);
   const [totalPastores, setTotalPastores] = useState(0);
-  const [minhaEquipeId, setMinhaEquipeId] = useState<string | null>(null);
-  const [minhaEquipeName, setMinhaEquipeName] = useState<string>("");
-  const [loading,      setLoading]      = useState(true);
-  const [savingRep,    setSavingRep]    = useState(false);
+  const [uso,           setUso]           = useState<Record<string, UsoMusica>>({});
+  const [favoritas,     setFavoritas]     = useState<string[]>([]);
+  const [liberacao,     setLiberacao]     = useState(false);
+  const [loading,       setLoading]       = useState(true);
 
-  const [search,     setSearch]     = useState("");
-  const [showModal,  setShowModal]  = useState(false);
-  const [form,       setForm]       = useState({ ...EMPTY });
-  const [saving,     setSaving]     = useState(false);
+  // Repertório por equipe
+  const [equipes,       setEquipes]       = useState<Equipe[]>([]);
+  const [equipeId,      setEquipeId]      = useState<string>("");
+  const [repEquipe,     setRepEquipe]     = useState<string[]>([]);
+  const [savingRep,     setSavingRep]     = useState(false);
+
+  const [search,  setSearch]  = useState("");
+  const [filtro,  setFiltro]  = useState<Filtro>({ tipo: "todas" });
+  const [diasX,   setDiasX]   = useState(60);
+
+  const [showModal, setShowModal] = useState(false);
+  const [form,      setForm]      = useState<MusicaForm>({ ...EMPTY });
+  const [liberarDireto, setLiberarDireto] = useState(true);
+  const [saving,    setSaving]    = useState(false);
+
+  const equipe = equipes.find(e => e.id === equipeId);
+  const podeEditarRepEquipe = !!equipe && (isPastor || isDiretor || equipe.liderId === user?.uid);
 
   async function load() {
+    if (!user) return;
     setLoading(true);
-    const tasks: Promise<void>[] = [
-      getMusicas().then(setMusicas),
-      getAllPastores().then(ps => setTotalPastores(ps.length)),
-    ];
-    if (isPastor || isDiretor) tasks.push(getMusicasPendentes().then(setPendentes));
-    if (isLiderEquipe && user?.uid) {
-      tasks.push(getMusicasByLider(user.uid).then(setMinhas));
-      tasks.push(
-        getEquipesByLider(user.uid).then(async eqs => {
-          const eq = eqs[0];
-          if (eq) {
-            setMinhaEquipeId(eq.id);
-            setMinhaEquipeName(eq.name);
-            const ids = await getRepertorioEquipe(eq.id);
-            setMeuRepertorio(ids);
-          }
-        })
-      );
+    try {
+      const [ms, pastores, escalas, eu, cfg, eqs] = await Promise.all([
+        getMusicas(), getAllPastores(), getEscalas(user.igrejaId), getUser(user.uid),
+        getConfigRepertorio(), getEquipes(user.igrejaId),
+      ]);
+      setMusicas(ms);
+      setTotalPastores(pastores.length);
+      setUso(usoDasMusicas(escalas));
+      setFavoritas(eu?.favoritas ?? []);
+      setLiberacao(cfg.liberacaoDireta);
+      const visiveis = (isPastor || isDiretor)
+        ? eqs
+        : eqs.filter(e => e.membros.includes(user.uid) || e.liderId === user.uid);
+      setEquipes(visiveis);
+      const inicial = visiveis.find(e => e.liderId === user.uid) ?? visiveis[0];
+      if (inicial && !equipeId) setEquipeId(inicial.id);
+      if (isPastor || isDiretor) setPendentes(await getMusicasPendentes());
+      if (isLiderEquipe || isDiretor) setMinhas(await getMusicasByLider(user.uid));
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao carregar o repertório"));
+    } finally {
+      setLoading(false);
     }
-    await Promise.all(tasks);
-    setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [user]);
 
-  function openNew() { setForm({ ...EMPTY }); setShowModal(true); }
+  useEffect(() => {
+    if (!equipeId) { setRepEquipe([]); return; }
+    getRepertorioEquipe(equipeId).then(setRepEquipe).catch(e => toast.error(mensagemErro(e)));
+  }, [equipeId]);
+
+  function openNew() { setForm({ ...EMPTY }); setLiberarDireto(true); setShowModal(true); }
+
+  const vaiAprovado = isPastor || (liberacao && liberarDireto);
 
   async function handleSave() {
-    if (!form.titulo || !form.artista) { toast.error("Título e artista são obrigatórios"); return; }
+    if (!form.titulo?.trim() || !form.artista?.trim()) { toast.error("Título e artista são obrigatórios"); return; }
     if (!user?.igrejaId && !isPastor) { toast.error("Seu usuário não está vinculado a uma igreja."); return; }
-    if (!isPastor && !form.letra?.trim()) { toast.error("A letra é obrigatória para análise dos pastores"); return; }
     setSaving(true);
     try {
-      const status: MusicaStatus = isPastor ? "aprovada" : "pendente";
-      const ref = await createMusica({ ...form, status, createdBy: user!.uid, igrejaId: user?.igrejaId });
-      if (isPastor) {
+      const status: MusicaStatus = vaiAprovado ? "aprovada" : "pendente";
+      const dados = Object.fromEntries(Object.entries(camposEditaveis(form)).filter(([, v]) => v !== undefined && v !== ""));
+      const ref = await createMusica({
+        ...(dados as Omit<Musica, "id" | "createdAt">),
+        ativo: true, status, createdBy: user!.uid, igrejaId: user?.igrejaId,
+      });
+      if (vaiAprovado) {
         toast.success("Música adicionada ao repertório!");
         router.push(`/repertorio/${ref.id}`);
       } else {
@@ -386,84 +467,185 @@ export default function RepertorioPage() {
         await load();
         setTab("submissoes");
       }
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao salvar a música"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleVotar(id: string, pontuacao: number, comentario: string) {
-    await votarMusica(id, { uid: user!.uid, name: user!.name, igrejaId: user?.igrejaId }, pontuacao, comentario);
-    toast.success("Voto registrado!");
-    await load();
+    try {
+      await votarMusica(id, { uid: user!.uid, name: user!.name, igrejaId: user?.igrejaId }, pontuacao, comentario);
+      toast.success("Voto registrado!");
+      await load();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao registrar o voto"));
+    }
   }
 
-  async function toggleMeuRepertorio(musicaId: string) {
-    if (!minhaEquipeId) { toast.error("Você precisa ser líder de uma equipe"); return; }
-    const novaLista = meuRepertorio.includes(musicaId)
-      ? meuRepertorio.filter(id => id !== musicaId)
-      : [...meuRepertorio, musicaId];
-    setMeuRepertorio(novaLista);
+  async function toggleLiberacao() {
+    const novo = !liberacao;
+    const msg = novo
+      ? "Liberar o cadastro direto? Líderes poderão adicionar músicas já aprovadas, sem votação."
+      : "Bloquear o cadastro direto? Novas músicas voltam a passar pela votação dos pastores.";
+    if (!confirm(msg)) return;
+    try {
+      await setLiberacaoDireta(novo);
+      setLiberacao(novo);
+      toast.success(novo ? "Cadastro direto liberado" : "Cadastro direto bloqueado");
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao alterar a liberação"));
+    }
+  }
+
+  async function toggleFavorita(musicaId: string) {
+    const fav = !favoritas.includes(musicaId);
+    setFavoritas(f => fav ? [...f, musicaId] : f.filter(x => x !== musicaId));
+    try {
+      await setFavorita(user!.uid, musicaId, fav);
+    } catch (e) {
+      setFavoritas(f => fav ? f.filter(x => x !== musicaId) : [...f, musicaId]);
+      toast.error(mensagemErro(e, "Erro ao salvar favorita"));
+    }
+  }
+
+  async function toggleRepEquipe(musicaId: string) {
+    if (!equipe || !podeEditarRepEquipe) return;
+    const anterior = repEquipe;
+    const nova = repEquipe.includes(musicaId) ? repEquipe.filter(id => id !== musicaId) : [...repEquipe, musicaId];
+    setRepEquipe(nova);
     setSavingRep(true);
     try {
-      await setRepertorioEquipe(minhaEquipeId, minhaEquipeName, user!.igrejaId!, novaLista);
+      await setRepertorioEquipe(equipe.id, equipe.name, equipe.igrejaId ?? user!.igrejaId!, nova);
+    } catch (e) {
+      setRepEquipe(anterior);
+      toast.error(mensagemErro(e, "Erro ao salvar o repertório da equipe"));
     } finally {
       setSavingRep(false);
     }
   }
 
-  const filtered = musicas.filter(m =>
-    m.titulo.toLowerCase().includes(search.toLowerCase()) ||
-    m.artista.toLowerCase().includes(search.toLowerCase()) ||
-    m.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Tags existentes viram abas de filtro
+  const tags = useMemo(() => {
+    const cont = new Map<string, number>();
+    musicas.filter(m => m.ativo !== false).forEach(m => m.tags?.forEach(t => cont.set(t, (cont.get(t) ?? 0) + 1)));
+    return Array.from(cont.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"));
+  }, [musicas]);
 
-  const canSubmit = isPastor || isDiretor || isLiderEquipe;
+  const termo = search.trim().toLowerCase();
+  const casaBusca = (m: Musica) => !termo ||
+    m.titulo.toLowerCase().includes(termo) ||
+    m.artista.toLowerCase().includes(termo) ||
+    m.tags?.some(t => t.toLowerCase().includes(termo));
 
-  // ── Tabs config ───────────────────────────────────────────────────────────────
+  const listaGeral = musicas.filter(m => {
+    if (filtro.tipo === "retiradas") return m.ativo === false;
+    if (m.ativo === false) return false;
+    if (filtro.tipo === "favoritas") return favoritas.includes(m.id);
+    if (filtro.tipo === "tag") return m.tags?.includes(filtro.tag);
+    if (filtro.tipo === "naoTocadas") {
+      const d = diasSemTocar(uso[m.id]);
+      return d === undefined || d >= diasX;
+    }
+    return true;
+  }).filter(casaBusca);
+
+  if (filtro.tipo === "naoTocadas") {
+    // nunca tocadas primeiro, depois as há mais tempo sem tocar
+    listaGeral.sort((a, b) => (diasSemTocar(uso[b.id]) ?? 1e9) - (diasSemTocar(uso[a.id]) ?? 1e9));
+  }
+
+  const listaEquipe = musicas.filter(m => repEquipe.includes(m.id) && m.ativo !== false).filter(casaBusca);
+
   const tabs = [
-    { id: "geral" as Tab, label: "Repertório Geral", show: true },
+    { id: "geral" as Tab, label: "Lista Geral", show: true },
+    { id: "equipe" as Tab, label: "Da Equipe", show: equipes.length > 0 },
     { id: "votar" as Tab, label: "Para Votar", badge: pendentes.length, show: isPastor || isDiretor },
     { id: "submissoes" as Tab, label: "Minhas Submissões", show: isLiderEquipe || isDiretor },
-    { id: "meu" as Tab, label: "Meu Repertório", show: isLiderEquipe },
   ].filter(t => t.show);
 
+  const chip = (ativo: boolean) => clsx(
+    "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1",
+    ativo ? "bg-primary-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+  );
+
+  const renderCard = (m: Musica) => (
+    <CardMusica
+      key={m.id}
+      m={m}
+      uso={uso[m.id]}
+      favorita={favoritas.includes(m.id)}
+      noRepertorio={repEquipe.includes(m.id)}
+      podeMarcarRepertorio={podeEditarRepEquipe && !savingRep}
+      onFavorita={() => toggleFavorita(m.id)}
+      onRepertorio={() => toggleRepEquipe(m.id)}
+      onAbrir={() => router.push(`/repertorio/${m.id}`)}
+    />
+  );
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Library size={24} className="text-primary-500" /> Repertório
           </h1>
-          <p className="text-gray-500 mt-1">{musicas.length} música{musicas.length !== 1 ? "s" : ""} aprovadas</p>
+          <p className="text-gray-500 mt-1">{musicas.filter(m => m.ativo !== false).length} músicas no repertório</p>
         </div>
-        {canSubmit && (
-          <button onClick={openNew} className="btn-primary flex items-center gap-2">
-            <Plus size={16} /> {isPastor ? "Adicionar" : "Submeter"}
-          </button>
-        )}
+        <div className="flex gap-2 shrink-0">
+          {podeCadastrar && (
+            <Link href="/repertorio/relatorio" className="btn-secondary flex items-center gap-2" title="Músicas mais tocadas">
+              <BarChart3 size={16} /> <span className="hidden sm:inline">Relatório</span>
+            </Link>
+          )}
+          {podeCadastrar && (
+            <button onClick={openNew} className="btn-primary flex items-center gap-2">
+              <Plus size={16} /> {isPastor || liberacao ? "Adicionar" : "Submeter"}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Liberação direta */}
+      {(isPastor || (liberacao && podeCadastrar)) && (
+        <div className={clsx("card p-3 flex items-center gap-3 text-sm",
+          liberacao ? "bg-green-50 border-green-100" : "bg-gray-50")}>
+          {liberacao ? <Unlock size={16} className="text-green-600 shrink-0" /> : <Lock size={16} className="text-gray-400 shrink-0" />}
+          <p className="flex-1 text-gray-700">
+            {liberacao
+              ? "Cadastro direto liberado: músicas já aprovadas podem entrar sem votação."
+              : "Cadastro direto bloqueado: novas músicas passam pela votação dos pastores."}
+          </p>
+          {isPastor && (
+            <button onClick={toggleLiberacao} className="text-xs font-semibold text-primary-600 hover:text-primary-800 shrink-0">
+              {liberacao ? "Bloquear" : "Liberar"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       {tabs.length > 1 && (
         <div className="flex gap-1 bg-gray-100 rounded-2xl p-1 overflow-x-auto">
           {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={clsx(
-                "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap flex items-center justify-center gap-2",
-                tab === t.id ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
-              )}
-            >
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={clsx("flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap flex items-center justify-center gap-2",
+                tab === t.id ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700")}>
               {t.label}
               {t.badge != null && t.badge > 0 && (
-                <span className="w-5 h-5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {t.badge}
-                </span>
+                <span className="w-5 h-5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{t.badge}</span>
               )}
             </button>
           ))}
+        </div>
+      )}
+
+      {(tab === "geral" || tab === "equipe") && (
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por título, artista ou tag..." className="input pl-9" />
         </div>
       )}
 
@@ -471,187 +653,128 @@ export default function RepertorioPage() {
         <div className="card p-8 text-center text-gray-400">Carregando...</div>
       ) : (
         <>
-          {/* ── Aba Repertório Geral ──────────────────────────────────────────── */}
+          {/* ── Lista Geral ─────────────────────────────────────────────────── */}
           {tab === "geral" && (
             <>
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar por título, artista ou tag..."
-                  className="input pl-9"
-                />
-              </div>
-              {filtered.length === 0 ? (
-                <div className="card p-12 text-center text-gray-400">
-                  <Music2 size={40} className="mx-auto mb-3 opacity-40" />
-                  <p>{search ? "Nenhuma música encontrada" : "Nenhuma música aprovada ainda"}</p>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {filtered.map(m => {
-                    const noMeu = meuRepertorio.includes(m.id);
-                    return (
-                      <div
-                        key={m.id}
-                        className="card p-4 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className="flex-1 min-w-0 cursor-pointer"
-                            onClick={() => router.push(`/repertorio/${m.id}`)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
-                                <Music2 size={16} className="text-purple-600" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-gray-900 truncate text-sm">{m.titulo}</p>
-                                <p className="text-xs text-gray-500 truncate">{m.artista}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 mt-2 ml-11">
-                              <span className="badge bg-primary-50 text-primary-600 font-bold text-xs">{m.tom}</span>
-                              {m.bpm && <span className="text-xs text-gray-400">{m.bpm} BPM</span>}
-                              {m.mediaVotos && (
-                                <span className="text-xs text-amber-600 flex items-center gap-0.5">
-                                  <Star size={10} fill="currentColor" className="text-amber-400" />
-                                  {m.mediaVotos.toFixed(1)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {isLiderEquipe && (
-                            <button
-                              onClick={() => toggleMeuRepertorio(m.id)}
-                              disabled={savingRep}
-                              title={noMeu ? "Remover do meu repertório" : "Adicionar ao meu repertório"}
-                              className={clsx(
-                                "p-2 rounded-xl transition-colors shrink-0",
-                                noMeu
-                                  ? "bg-primary-100 text-primary-600 hover:bg-primary-200"
-                                  : "text-gray-300 hover:bg-gray-100 hover:text-primary-400"
-                              )}
-                            >
-                              {noMeu ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── Aba Para Votar (pastores) ─────────────────────────────────────── */}
-          {tab === "votar" && (isPastor || isDiretor) && (
-            <>
-              {pendentes.length === 0 ? (
-                <div className="card p-12 text-center text-gray-400">
-                  <CheckCircle2 size={40} className="mx-auto mb-3 opacity-40" />
-                  <p>Nenhuma música aguardando votação</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {isDiretor && (
-                    <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
-                      Como Diretor Musical, você acompanha as votações mas não participa da avaliação das músicas.
-                    </p>
-                  )}
-                  {isPastor && (
-                    <p className="text-sm text-gray-500">
-                      {pendentes.filter(m => m.votos?.[user!.uid]).length} de {pendentes.length} avaliadas por você
-                    </p>
-                  )}
-                  {pendentes.map(m => (
-                    <CardPendente
-                      key={m.id}
-                      musica={m}
-                      pastorUid={user!.uid}
-                      totalPastores={totalPastores}
-                      readonly={isDiretor}
-                      onVotar={handleVotar}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── Aba Minhas Submissões (lider_equipe) ─────────────────────────── */}
-          {tab === "submissoes" && (isLiderEquipe || isDiretor) && (
-            <>
-              {minhas.length === 0 ? (
-                <div className="card p-12 text-center text-gray-400">
-                  <Music2 size={40} className="mx-auto mb-3 opacity-40" />
-                  <p>Você ainda não submeteu nenhuma música</p>
-                  <button onClick={openNew} className="btn-primary mt-4 text-sm">
-                    Submeter primeira música
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <button className={chip(filtro.tipo === "todas")} onClick={() => setFiltro({ tipo: "todas" })}>Todas</button>
+                <button className={chip(filtro.tipo === "favoritas")} onClick={() => setFiltro({ tipo: "favoritas" })}>
+                  <Star size={11} fill="currentColor" /> Favoritas
+                </button>
+                <button className={chip(filtro.tipo === "naoTocadas")} onClick={() => setFiltro({ tipo: "naoTocadas" })}>
+                  <History size={11} /> Não tocadas
+                </button>
+                {tags.map(([t, n]) => (
+                  <button key={t} className={chip(filtro.tipo === "tag" && filtro.tag === t)} onClick={() => setFiltro({ tipo: "tag", tag: t })}>
+                    {t} <span className="opacity-60">{n}</span>
                   </button>
+                ))}
+                {isPastor && (
+                  <button className={chip(filtro.tipo === "retiradas")} onClick={() => setFiltro({ tipo: "retiradas" })}>
+                    <EyeOff size={11} /> Retiradas
+                  </button>
+                )}
+              </div>
+
+              {filtro.tipo === "naoTocadas" && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  Sem tocar há pelo menos
+                  <input type="number" min={1} value={diasX} onChange={e => setDiasX(Math.max(1, Number(e.target.value) || 1))}
+                    className="input w-20 py-1.5 text-center" />
+                  dias (inclui as nunca tocadas)
+                </div>
+              )}
+
+              {equipe && podeEditarRepEquipe && (
+                <p className="text-xs text-gray-400">
+                  Use <Bookmark size={11} className="inline" /> para montar o repertório da equipe <strong>{equipe.name}</strong>.
+                </p>
+              )}
+
+              {listaGeral.length === 0 ? (
+                <div className="card p-12 text-center text-gray-400">
+                  <Music2 size={40} className="mx-auto mb-3 opacity-40" />
+                  <p>{search || filtro.tipo !== "todas" ? "Nenhuma música neste filtro" : "Nenhuma música aprovada ainda"}</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {minhas.map(m => (
-                    <CardSubmissao key={m.id} musica={m} totalPastores={totalPastores} />
-                  ))}
-                </div>
+                <div className="grid gap-3 sm:grid-cols-2">{listaGeral.map(renderCard)}</div>
               )}
             </>
           )}
 
-          {/* ── Aba Meu Repertório (lider_equipe) ────────────────────────────── */}
-          {tab === "meu" && isLiderEquipe && (
+          {/* ── Repertório da Equipe ────────────────────────────────────────── */}
+          {tab === "equipe" && (
             <>
-              <div className="card p-4 bg-primary-50 border-primary-100">
-                <div className="flex items-center gap-3">
-                  <BookMarked size={20} className="text-primary-500 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-primary-800">Repertório de {minhaEquipeName || "sua equipe"}</p>
-                    <p className="text-xs text-primary-600">{meuRepertorio.length} música{meuRepertorio.length !== 1 ? "s" : ""} selecionada{meuRepertorio.length !== 1 ? "s" : ""}. Clique no marcador <Bookmark size={11} className="inline" /> no Repertório Geral para adicionar.</p>
-                  </div>
+              <div className="card p-4 bg-primary-50 border-primary-100 flex flex-col sm:flex-row sm:items-center gap-3">
+                <BookMarked size={20} className="text-primary-500 shrink-0" />
+                <div className="flex-1">
+                  {equipes.length > 1 ? (
+                    <select value={equipeId} onChange={e => setEquipeId(e.target.value)} className="input py-2 bg-white">
+                      {equipes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                  ) : (
+                    <p className="text-sm font-semibold text-primary-800">Repertório de {equipe?.name}</p>
+                  )}
+                  <p className="text-xs text-primary-600 mt-1">
+                    {repEquipe.length} música{repEquipe.length !== 1 ? "s" : ""}
+                    {podeEditarRepEquipe && <> · adicione pela Lista Geral com <Bookmark size={11} className="inline" /></>}
+                  </p>
                 </div>
               </div>
-
-              {meuRepertorio.length === 0 ? (
+              {listaEquipe.length === 0 ? (
                 <div className="card p-12 text-center text-gray-400">
                   <BookMarked size={40} className="mx-auto mb-3 opacity-40" />
-                  <p>Nenhuma música no seu repertório ainda</p>
-                  <button onClick={() => setTab("geral")} className="btn-secondary mt-4 text-sm">
-                    Ir para Repertório Geral
-                  </button>
+                  <p>Nenhuma música no repertório desta equipe</p>
+                  {podeEditarRepEquipe && (
+                    <button onClick={() => setTab("geral")} className="btn-secondary mt-4 text-sm">Ir para a Lista Geral</button>
+                  )}
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {musicas.filter(m => meuRepertorio.includes(m.id)).map((m, idx) => (
-                    <div
-                      key={m.id}
-                      className="card p-4 flex items-center gap-3"
-                    >
-                      <span className="w-7 h-7 bg-primary-100 rounded-lg flex items-center justify-center text-primary-700 font-bold text-sm shrink-0">
-                        {idx + 1}
-                      </span>
-                      <div
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => router.push(`/repertorio/${m.id}`)}
-                      >
-                        <p className="font-semibold text-gray-900 truncate text-sm">{m.titulo}</p>
-                        <p className="text-xs text-gray-500 truncate">{m.artista} · {m.tom}</p>
-                      </div>
-                      <button
-                        onClick={() => toggleMeuRepertorio(m.id)}
-                        className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                        title="Remover do meu repertório"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <div className="grid gap-3 sm:grid-cols-2">{listaEquipe.map(renderCard)}</div>
               )}
             </>
+          )}
+
+          {/* ── Para Votar ──────────────────────────────────────────────────── */}
+          {tab === "votar" && (isPastor || isDiretor) && (
+            pendentes.length === 0 ? (
+              <div className="card p-12 text-center text-gray-400">
+                <CheckCircle2 size={40} className="mx-auto mb-3 opacity-40" />
+                <p>Nenhuma música aguardando votação</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {isDiretor && (
+                  <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
+                    Como Diretor Musical, você acompanha as votações mas não participa da avaliação das músicas.
+                  </p>
+                )}
+                {isPastor && (
+                  <p className="text-sm text-gray-500">
+                    {pendentes.filter(m => m.votos?.[user!.uid]).length} de {pendentes.length} avaliadas por você
+                  </p>
+                )}
+                {pendentes.map(m => (
+                  <CardPendente key={m.id} musica={m} pastorUid={user!.uid} totalPastores={totalPastores}
+                    readonly={isDiretor} onVotar={handleVotar} />
+                ))}
+              </div>
+            )
+          )}
+
+          {/* ── Minhas Submissões ───────────────────────────────────────────── */}
+          {tab === "submissoes" && (isLiderEquipe || isDiretor) && (
+            minhas.length === 0 ? (
+              <div className="card p-12 text-center text-gray-400">
+                <Music2 size={40} className="mx-auto mb-3 opacity-40" />
+                <p>Você ainda não cadastrou nenhuma música</p>
+                <button onClick={openNew} className="btn-primary mt-4 text-sm">Cadastrar primeira música</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {minhas.map(m => <CardSubmissao key={m.id} musica={m} totalPastores={totalPastores} />)}
+              </div>
+            )
           )}
         </>
       )}
@@ -659,79 +782,40 @@ export default function RepertorioPage() {
       {/* Modal cadastro */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div>
-                <h2 className="font-bold text-gray-900 text-lg">
-                  {isPastor ? "Nova Música" : "Submeter Música para Votação"}
-                </h2>
-                {!isPastor && (
+                <h2 className="font-bold text-gray-900 text-lg">{vaiAprovado ? "Nova Música" : "Submeter Música para Votação"}</h2>
+                {!vaiAprovado && (
                   <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
                     <AlertCircle size={12} /> Todos os pastores precisam votar antes de entrar no repertório
                   </p>
                 )}
               </div>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600" aria-label="Fechar"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div>
-                <label className="label">Título *</label>
-                <input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} className="input" placeholder="Nome da música" />
-              </div>
-              <div>
-                <label className="label">Artista/Ministério *</label>
-                <input value={form.artista} onChange={e => setForm(f => ({ ...f, artista: e.target.value }))} className="input" placeholder="Ex: Hillsong, Gabriela Rocha..." />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Tom</label>
-                  <select value={form.tom} onChange={e => setForm(f => ({ ...f, tom: e.target.value as TomMusical }))} className="input">
-                    {TONS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+              {liberacao && !isPastor && (
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setLiberarDireto(true)}
+                    className={clsx("text-left p-3 rounded-2xl border-2 transition-colors",
+                      liberarDireto ? "border-green-500 bg-green-50" : "border-gray-100 hover:border-gray-200")}>
+                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><Unlock size={14} /> Já aprovada — liberar</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Entra direto no repertório</p>
+                  </button>
+                  <button type="button" onClick={() => setLiberarDireto(false)}
+                    className={clsx("text-left p-3 rounded-2xl border-2 transition-colors",
+                      !liberarDireto ? "border-amber-500 bg-amber-50" : "border-gray-100 hover:border-gray-200")}>
+                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><Clock size={14} /> Enviar para votação</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Os pastores avaliam antes</p>
+                  </button>
                 </div>
-                <div>
-                  <label className="label">BPM</label>
-                  <input type="number" value={form.bpm ?? ""} onChange={e => setForm(f => ({ ...f, bpm: e.target.value ? Number(e.target.value) : undefined }))} className="input" placeholder="120" />
-                </div>
-              </div>
-              <div>
-                <label className="label flex items-center gap-1.5">
-                  <Youtube size={13} className="text-red-500" /> YouTube
-                </label>
-                <YoutubeSearch
-                  value={form.youtubeUrl ?? ""}
-                  onChange={url => setForm(f => ({ ...f, youtubeUrl: url }))}
-                  searchQuery={[form.titulo, form.artista].filter(Boolean).join(" ")}
-                />
-              </div>
-              <div>
-                <label className="label">Tags (separadas por vírgula)</label>
-                <input
-                  value={form.tags?.join(", ") ?? ""}
-                  onChange={e => setForm(f => ({ ...f, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))}
-                  className="input"
-                  placeholder="adoração, ungida, rápida"
-                />
-              </div>
-              <div>
-                <label className="label">
-                  Letra {!isPastor && <span className="text-red-500">*</span>}
-                </label>
-                {!isPastor && <p className="text-xs text-gray-400 mb-1">Os pastores analisam a letra para a votação</p>}
-                <textarea
-                  value={form.letra ?? ""}
-                  onChange={e => setForm(f => ({ ...f, letra: e.target.value }))}
-                  className="input resize-none"
-                  rows={6}
-                  placeholder="Cole a letra aqui..."
-                />
-              </div>
+              )}
+              <MusicaCampos form={form} setForm={setForm} />
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
                 <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
-                  {saving ? "Salvando..." : isPastor ? "Adicionar" : "Enviar para votação"}
+                  {saving ? "Salvando..." : vaiAprovado ? "Adicionar" : "Enviar para votação"}
                 </button>
               </div>
             </div>

@@ -7,6 +7,7 @@ import type { Notificacao, NotificacaoTipo, AppUser } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { mensagemErro } from "@/lib/errors";
 import { Bell, Plus, X, CheckCheck, AlertTriangle, Info, Calendar, Users } from "lucide-react";
 import clsx from "clsx";
 
@@ -33,10 +34,15 @@ export default function NotificacoesPage() {
 
   async function load() {
     setLoading(true);
-    const [n, u] = await Promise.all([getNotificacoes(user?.igrejaId), getAllUsers(user?.igrejaId)]);
-    setNotifs(n);
-    setUsers(u);
-    setLoading(false);
+    try {
+      const [n, u] = await Promise.all([getNotificacoes(user?.igrejaId), getAllUsers(user?.igrejaId)]);
+      setNotifs(n);
+      setUsers(u);
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao carregar os avisos"));
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { load(); }, []);
 
@@ -48,8 +54,12 @@ export default function NotificacoesPage() {
   });
 
   async function handleMarcarLida(id: string) {
-    await marcarNotificacaoLida(id, user!.uid);
-    await load();
+    try {
+      await marcarNotificacaoLida(id, user!.uid);
+      await load();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao marcar como lido"));
+    }
   }
 
   async function handleCreate() {
@@ -60,6 +70,8 @@ export default function NotificacoesPage() {
       toast.success("Notificação enviada!");
       setShowModal(false);
       await load();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao enviar o aviso"));
     } finally {
       setSaving(false);
     }

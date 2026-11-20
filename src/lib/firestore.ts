@@ -1,13 +1,14 @@
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, getDocs, query, where, orderBy,
-  serverTimestamp, addDoc, Timestamp,
+  serverTimestamp, addDoc, Timestamp, arrayUnion, arrayRemove, deleteField, writeBatch,
+  type QueryConstraint,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import type {
   AppUser, Equipe, Escala, Musica, Notificacao, Igreja,
   PrestacaoPergunta, PrestacaoResposta, PrestacaoControle,
-  UserRole,
+  UserRole, ConfigRepertorio, PaletaModelo,
 } from "./types";
 
 // ── HELPERS ────────────────────────────────────────────────────────────────────
@@ -39,6 +40,31 @@ function byIgreja<T extends { igrejaId?: string }>(list: T[], igrejaId?: string)
   if (!igrejaId) return list; // super_admin ou sem restrição
   return list.filter(item => !item.igrejaId || item.igrejaId === igrejaId);
 }
+
+/**
+ * Monta a consulta já filtrada pela igreja no Firestore (as regras exigem isso:
+ * "rules are not filters"). Sem igrejaId (super_admin) busca a coleção inteira.
+ * A ordenação é feita no cliente para não exigir índices compostos.
+ */
+function porIgreja(col: string, igrejaId?: string, ...extra: QueryConstraint[]) {
+  const base = collection(db, col);
+  return igrejaId
+    ? query(base, where("igrejaId", "==", igrejaId), ...extra)
+    : query(base, ...extra);
+}
+
+function mapUser(d: { data(): Record<string, unknown>; id: string }): AppUser {
+  const data = d.data();
+  return {
+    ...data,
+    uid: d.id,
+    roles: normalizeRoles(data),
+    createdAt: toDate(data.createdAt),
+  } as AppUser;
+}
+
+const porTexto = <T,>(campo: (x: T) => string | undefined) => (a: T, b: T) =>
+  (campo(a) ?? "").localeCompare(campo(b) ?? "", "pt-BR");
 
 // ── IGREJAS ────────────────────────────────────────────────────────────────────
 export async function getIgrejas(): Promise<Igreja[]> {
@@ -87,57 +113,51 @@ export async function updateUser(uid: string, data: Partial<AppUser>) {
 }
 
 export async function getAllMusicos(igrejaId?: string): Promise<AppUser[]> {
-  const q = query(
-    collection(db, "users"),
+  const q = porIgreja("users", igrejaId,
     where("roles", "array-contains", "musico"),
-    where("ativo", "==", true)
+    where("ativo", "==", true),
   );
   const snap = await getDocs(q);
-  const all = snap.docs.map(d => ({
-    ...d.data(),
-    uid: d.id,
-    roles: normalizeRoles(d.data() as Record<string, unknown>),
-    createdAt: toDate(d.data().createdAt),
-  } as AppUser));
-  return igrejaId ? all.filter(u => !u.igrejaId || u.igrejaId === igrejaId) : all;
+  return snap.docs.map(mapUser).sort(porTexto(u => u.name));
 }
 
 export async function getAllUsers(igrejaId?: string): Promise<AppUser[]> {
-  const snap = await getDocs(collection(db, "users"));
-  const all = snap.docs.map(d => ({
-    ...d.data(),
-    uid: d.id,
-    roles: normalizeRoles(d.data() as Record<string, unknown>),
-    createdAt: toDate(d.data().createdAt),
-  } as AppUser));
+  const snap = await getDocs(porIgreja("users", igrejaId));
   // Nunca mostra super_admins na lista de membros de uma igreja
-  const semSuperAdmin = all.filter(u => !u.roles.includes("super_admin"));
-  return igrejaId
-    ? semSuperAdmin.filter(u => !u.igrejaId || u.igrejaId === igrejaId)
-    : semSuperAdmin;
+  return snap.docs
+    .map(mapUser)
+    .filter(u => !u.roles.includes("super_admin"))
+    .sort(porTexto(u => u.name));
 }
 
 export async function getMusicosByLider(liderUid: string): Promise<AppUser[]> {
   const q = query(collection(db, "users"), where("liderUid", "==", liderUid), where("ativo", "==", true));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({
-    ...d.data(),
-    uid: d.id,
-    roles: normalizeRoles(d.data() as Record<string, unknown>),
-    createdAt: toDate(d.data().createdAt),
-  } as AppUser));
+  return snap.docs.map(mapUser);
 }
 
 // ── EQUIPES ────────────────────────────────────────────────────────────────────
 export async function getEquipes(igrejaId?: string): Promise<Equipe[]> {
-  const q = query(collection(db, "equipes"), orderBy("name"));
-  const snap = await getDocs(q);
-  const all = snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Equipe));
-  return byIgreja(all, igrejaId);
+  const snap = await getDocs(porIgreja("equipes", igrejaId));
+  return snap.docs
+    .map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Equipe))
+    .sort(porTexto(e => e.name));
 }
 
-export async function getEquipesByLider(liderId: string): Promise<Equipe[]> {
-  const q = query(collection(db, "equipes"), where("liderId", "==", liderId));
+export async function getEquipe(id: string): Promise<Equipe | null> {
+  const snap = await getDoc(doc(db, "equipes", id));
+  if (!snap.exists()) return null;
+  return { ...snap.data(), id: snap.id, createdAt: toDate(snap.data().createdAt) } as Equipe;
+}
+
+export async function getEscala(id: string): Promise<Escala | null> {
+  const snap = await getDoc(doc(db, "escalas", id));
+  if (!snap.exists()) return null;
+  return mapEscala(snap);
+}
+
+export async function getEquipesByLider(liderId: string, igrejaId?: string): Promise<Equipe[]> {
+  const q = porIgreja("equipes", igrejaId, where("liderId", "==", liderId));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Equipe));
 }
@@ -162,10 +182,25 @@ export async function getMusica(id: string): Promise<Musica | null> {
 
 // ── ESCALAS ────────────────────────────────────────────────────────────────────
 export async function getEscalas(igrejaId?: string): Promise<Escala[]> {
-  const q = query(collection(db, "escalas"), orderBy("data", "desc"));
-  const snap = await getDocs(q);
-  const all = snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Escala));
-  return byIgreja(all, igrejaId);
+  const snap = await getDocs(porIgreja("escalas", igrejaId));
+  return snap.docs.map(mapEscala).sort((a, b) => b.data.localeCompare(a.data));
+}
+
+function mapEscala(d: { data(): Record<string, unknown> | undefined; id: string }): Escala {
+  const data = d.data() ?? {};
+  const confirmacoes = (data.confirmacoes ?? {}) as Record<string, boolean>;
+  // Confirmações ficam no mapa confirmacoes.{uid} (cada membro grava só a sua);
+  // o campo membros[].confirmado é o valor legado.
+  const membros = ((data.membros ?? []) as Escala["membros"]).map(m => ({
+    ...m,
+    confirmado: m.uid in confirmacoes ? confirmacoes[m.uid] : m.confirmado,
+  }));
+  return { ...data, id: d.id, membros, createdAt: toDate(data.createdAt) } as Escala;
+}
+
+/** Membro confirma (true) ou recusa (false) a própria presença numa escala. */
+export async function confirmarPresenca(escalaId: string, uid: string, confirmado: boolean) {
+  await updateDoc(doc(db, "escalas", escalaId), { [`confirmacoes.${uid}`]: confirmado });
 }
 
 export async function createEscala(data: Omit<Escala, "id" | "createdAt">) {
@@ -225,12 +260,63 @@ export async function getMusicasByLider(uid: string, igrejaId?: string): Promise
   return byIgreja(all, igrejaId);
 }
 
+/** Pastor devolve uma música para votação (zera os votos). */
+export async function enviarParaVotacao(id: string) {
+  await updateDoc(doc(db, "musicas", id), {
+    status: "pendente",
+    votos: deleteField(),
+    mediaVotos: deleteField(),
+  });
+}
+
+/** Retira (ativo=false) ou recoloca (ativo=true) uma música no repertório. */
+export async function setMusicaAtiva(id: string, ativo: boolean) {
+  await updateDoc(doc(db, "musicas", id), { ativo });
+}
+
+/** Marca/desmarca uma música como favorita do usuário. */
+export async function setFavorita(uid: string, musicaId: string, favorita: boolean) {
+  await updateDoc(doc(db, "users", uid), {
+    favoritas: favorita ? arrayUnion(musicaId) : arrayRemove(musicaId),
+  });
+}
+
+// ── CONFIGURAÇÕES ──────────────────────────────────────────────────────────────
+export async function getConfigRepertorio(): Promise<ConfigRepertorio> {
+  const snap = await getDoc(doc(db, "configuracoes", "repertorio"));
+  return { liberacaoDireta: snap.exists() ? snap.data().liberacaoDireta === true : false };
+}
+
+export async function setLiberacaoDireta(liberacaoDireta: boolean) {
+  await setDoc(doc(db, "configuracoes", "repertorio"), { liberacaoDireta }, { merge: true });
+}
+
+// ── PALETAS (modelos salvos) ───────────────────────────────────────────────────
+export async function getPaletasModelo(igrejaId?: string): Promise<PaletaModelo[]> {
+  const snap = await getDocs(porIgreja("paletas_modelo", igrejaId));
+  return snap.docs
+    .map(d => ({ ...d.data(), id: d.id } as PaletaModelo))
+    .sort(porTexto(p => p.nome));
+}
+
+export async function createPaletaModelo(data: Omit<PaletaModelo, "id">) {
+  return addDoc(collection(db, "paletas_modelo"), { ...clean(data), createdAt: serverTimestamp() });
+}
+
+export async function deletePaletaModelo(id: string) {
+  await deleteDoc(doc(db, "paletas_modelo", id));
+}
+
 export async function createMusica(data: Omit<Musica, "id" | "createdAt">) {
   return addDoc(collection(db, "musicas"), { ...clean(data), createdAt: serverTimestamp() });
 }
 
+/** Atualiza a música; campos enviados como undefined são apagados do documento. */
 export async function updateMusica(id: string, data: Partial<Musica>) {
-  await updateDoc(doc(db, "musicas", id), clean(data));
+  const dados = Object.fromEntries(
+    Object.entries(data).map(([k, v]) => [k, v === undefined || v === "" ? deleteField() : v])
+  );
+  await updateDoc(doc(db, "musicas", id), dados);
 }
 
 export async function deleteMusica(id: string) {
@@ -311,14 +397,14 @@ export async function setRepertorioEquipe(
 
 // ── NOTIFICAÇÕES ───────────────────────────────────────────────────────────────
 export async function getNotificacoes(igrejaId?: string): Promise<Notificacao[]> {
-  const q = query(collection(db, "notificacoes"), orderBy("createdAt", "desc"));
-  const snap = await getDocs(q);
   const limite = new Date();
   limite.setDate(limite.getDate() - 10); // visível por 10 dias
-  const all = snap.docs
-    .map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as Notificacao))
-    .filter(n => n.createdAt >= limite);
-  return byIgreja(all, igrejaId);
+  // Filtro de data no cliente: igrejaId == + createdAt >= exigiria índice composto
+  const snap = await getDocs(porIgreja("notificacoes", igrejaId));
+  return snap.docs
+    .map(d => ({ ...d.data(), id: d.id, lidos: d.data().lidos ?? [], createdAt: toDate(d.data().createdAt) } as Notificacao))
+    .filter(n => n.createdAt >= limite)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 export async function createNotificacao(data: Omit<Notificacao, "id" | "createdAt" | "lidos">) {
@@ -326,26 +412,20 @@ export async function createNotificacao(data: Omit<Notificacao, "id" | "createdA
 }
 
 export async function marcarNotificacaoLida(id: string, uid: string) {
-  const ref = doc(db, "notificacoes", id);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const lidos: string[] = snap.data().lidos || [];
-  if (!lidos.includes(uid)) {
-    await updateDoc(ref, { lidos: [...lidos, uid] });
-  }
+  // arrayUnion é atômico: duas leituras simultâneas não se sobrescrevem
+  await updateDoc(doc(db, "notificacoes", id), { lidos: arrayUnion(uid) });
 }
 
 // ── PRESTAÇÃO DE CONTAS — PERGUNTAS ────────────────────────────────────────────
-export async function getPrestacaoPerguntas(): Promise<PrestacaoPergunta[]> {
-  const q = query(collection(db, "prestacao_perguntas"), where("ativa", "==", true), orderBy("ordem"));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as PrestacaoPergunta));
+export async function getPrestacaoPerguntas(igrejaId?: string): Promise<PrestacaoPergunta[]> {
+  return (await getAllPrestacaoPerguntas(igrejaId)).filter(p => p.ativa);
 }
 
-export async function getAllPrestacaoPerguntas(): Promise<PrestacaoPergunta[]> {
-  const q = query(collection(db, "prestacao_perguntas"), orderBy("ordem"));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as PrestacaoPergunta));
+export async function getAllPrestacaoPerguntas(igrejaId?: string): Promise<PrestacaoPergunta[]> {
+  const snap = await getDocs(porIgreja("prestacao_perguntas", igrejaId));
+  return snap.docs
+    .map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) } as PrestacaoPergunta))
+    .sort((a, b) => a.ordem - b.ordem);
 }
 
 export async function createPrestacaoPergunta(data: Omit<PrestacaoPergunta, "id" | "createdAt">) {
@@ -403,28 +483,62 @@ export async function getAllRespostasByMes(mes: string): Promise<PrestacaoRespos
 
 // ── PRESTAÇÃO DE CONTAS — CONTROLE ─────────────────────────────────────────────
 async function registrarRespostaNoControle(uid: string, mes: string) {
-  const ref = doc(db, "prestacao_controle", mes);
-  const snap = await getDoc(ref);
-  if (snap.exists()) {
-    const responderam: string[] = snap.data().responderam || [];
-    if (!responderam.includes(uid)) {
-      await updateDoc(ref, { responderam: [...responderam, uid] });
-    }
-  } else {
-    const prazo = `${mes}-15`;
-    await setDoc(ref, { mes, responderam: [uid], totalMusicos: 0, prazo, aberto: true });
-  }
+  // merge + arrayUnion: cria o doc se não existir e nunca apaga quem já respondeu
+  await setDoc(
+    doc(db, "prestacao_controle", mes),
+    { mes, prazo: `${mes}-15`, responderam: arrayUnion(uid) },
+    { merge: true },
+  );
 }
 
 export async function getPrestacaoControle(mes: string): Promise<PrestacaoControle | null> {
   const snap = await getDoc(doc(db, "prestacao_controle", mes));
   if (!snap.exists()) return null;
-  return { ...snap.data(), id: snap.id } as PrestacaoControle;
+  return { ...snap.data(), responderam: snap.data().responderam ?? [], id: snap.id } as PrestacaoControle;
 }
 
 export async function initPrestacaoControle(mes: string, totalMusicos: number) {
   const prazo = `${mes}-15`;
+  // Não envia `responderam` para não apagar quem já respondeu (merge)
   await setDoc(doc(db, "prestacao_controle", mes), {
-    mes, responderam: [], totalMusicos, prazo, aberto: true,
+    mes, totalMusicos, prazo, aberto: true,
   }, { merge: true });
+}
+
+// ── MIGRAÇÃO (super admin) ─────────────────────────────────────────────────────
+/** Coleções que pertencem a uma igreja e precisam do campo igrejaId. */
+export const COLECOES_POR_IGREJA = [
+  "users", "equipes", "escalas", "musicas", "notificacoes", "prestacao_perguntas",
+] as const;
+
+/** Conta, por coleção, os documentos antigos sem igrejaId (ignora super admins). */
+export async function contarSemIgreja(): Promise<Record<string, number>> {
+  const result: Record<string, number> = {};
+  for (const col of COLECOES_POR_IGREJA) {
+    const snap = await getDocs(collection(db, col));
+    result[col] = snap.docs.filter(d => semIgreja(col, d.data())).length;
+  }
+  return result;
+}
+
+/** Vincula todos os documentos sem igrejaId à igreja informada. Retorna o total alterado. */
+export async function vincularSemIgreja(igrejaId: string): Promise<number> {
+  let total = 0;
+  for (const col of COLECOES_POR_IGREJA) {
+    const snap = await getDocs(collection(db, col));
+    const alvos = snap.docs.filter(d => semIgreja(col, d.data()));
+    for (let i = 0; i < alvos.length; i += 400) {
+      const batch = writeBatch(db);
+      alvos.slice(i, i + 400).forEach(d => batch.update(d.ref, { igrejaId }));
+      await batch.commit();
+    }
+    total += alvos.length;
+  }
+  return total;
+}
+
+function semIgreja(col: string, data: Record<string, unknown>): boolean {
+  if (data.igrejaId) return false;
+  if (col === "users" && normalizeRoles(data).includes("super_admin")) return false;
+  return true;
 }

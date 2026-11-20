@@ -1,27 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, X, Youtube, Loader2 } from "lucide-react";
+import { Search, X, Youtube, Music, Loader2 } from "lucide-react";
 import clsx from "clsx";
+import { auth } from "@/lib/firebase";
+import { PLATAFORMAS, type Plataforma } from "@/lib/plataformas";
 
-interface YoutubeResult {
-  videoId: string;
+interface Resultado {
+  id: string;
   title: string;
-  channel: string;
+  subtitle: string;
   thumb: string;
   url: string;
 }
 
 interface Props {
+  plataforma: Plataforma;
   value: string;
   onChange: (url: string) => void;
   searchQuery?: string; // pré-popula a busca com título + artista
 }
 
-export default function YoutubeSearch({ value, onChange, searchQuery }: Props) {
+/** Busca uma música no YouTube, Spotify ou Deezer e devolve o link escolhido. */
+export default function PlataformaSearch({ plataforma, value, onChange, searchQuery }: Props) {
+  const cfg = PLATAFORMAS[plataforma];
+  const Icone = plataforma === "youtube" ? Youtube : Music;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<YoutubeResult[]>([]);
+  const [results, setResults] = useState<Resultado[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -47,7 +53,10 @@ export default function YoutubeSearch({ value, onChange, searchQuery }: Props) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/youtube-search?q=${encodeURIComponent(q)}`);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`${cfg.rota}?q=${encodeURIComponent(q)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       if (data.error) { setError(data.error); setResults([]); }
       else setResults(data.items ?? []);
@@ -64,7 +73,7 @@ export default function YoutubeSearch({ value, onChange, searchQuery }: Props) {
     debounceRef.current = setTimeout(() => buscar(v), 600);
   }
 
-  function select(result: YoutubeResult) {
+  function select(result: Resultado) {
     onChange(result.url);
     setOpen(false);
     setResults([]);
@@ -81,7 +90,7 @@ export default function YoutubeSearch({ value, onChange, searchQuery }: Props) {
         <div className="relative flex-1">
           {value ? (
             <div className="input flex items-center gap-2 pr-8">
-              <Youtube size={14} className="text-red-500 shrink-0" />
+              <Icone size={14} className="text-gray-500 shrink-0" />
               <a href={value} target="_blank" rel="noreferrer" className="text-sm text-primary-600 hover:underline truncate flex-1">
                 {value}
               </a>
@@ -92,7 +101,7 @@ export default function YoutubeSearch({ value, onChange, searchQuery }: Props) {
           ) : (
             <input
               readOnly
-              placeholder="Nenhum vídeo selecionado"
+              placeholder={cfg.vazio}
               className="input text-gray-400 cursor-pointer"
               onClick={handleOpen}
             />
@@ -101,9 +110,10 @@ export default function YoutubeSearch({ value, onChange, searchQuery }: Props) {
         <button
           type="button"
           onClick={handleOpen}
-          className="flex items-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-sm font-medium transition-colors shrink-0"
+          className={`flex items-center gap-2 px-4 py-2.5 ${cfg.cor} text-white rounded-2xl text-sm font-medium transition-colors shrink-0`}
+          aria-label={`Buscar no ${cfg.nome}`}
         >
-          <Youtube size={15} /> Buscar
+          <Icone size={15} /> Buscar
         </button>
       </div>
 
@@ -150,17 +160,17 @@ export default function YoutubeSearch({ value, onChange, searchQuery }: Props) {
             )}
             {results.map(r => (
               <button
-                key={r.videoId}
+                key={r.id}
                 type="button"
                 onClick={() => select(r)}
                 className={clsx(
                   "w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary-50 transition-colors text-left border-b border-gray-50 last:border-0"
                 )}
               >
-                <img src={r.thumb} alt="" className="w-16 h-12 rounded-lg object-cover shrink-0 bg-gray-100" />
+                <img src={r.thumb} alt="" className={`${plataforma === "youtube" ? "w-16" : "w-12"} h-12 rounded-lg object-cover shrink-0 bg-gray-100`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">{r.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 truncate">{r.channel}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{r.subtitle}</p>
                 </div>
               </button>
             ))}

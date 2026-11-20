@@ -46,7 +46,7 @@ export default function PerguntasPage() {
 
   async function load() {
     setLoading(true);
-    setPerguntas(await getAllPrestacaoPerguntas());
+    setPerguntas(await getAllPrestacaoPerguntas(user?.igrejaId));
     setLoading(false);
   }
 
@@ -78,7 +78,7 @@ export default function PerguntasPage() {
       } else {
         await createPrestacaoPergunta({
           texto, tipo, obrigatoria, publicoAlvo, opcoes: tipo === "multipla_escolha" ? opcoes : [],
-          ordem: perguntas.length + 1, ativa: true, createdBy: user!.uid,
+          ordem: perguntas.length + 1, ativa: true, createdBy: user!.uid, igrejaId: user?.igrejaId,
         });
         toast.success("Pergunta criada!");
       }

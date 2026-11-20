@@ -86,6 +86,7 @@ export interface AppUser {
   telefone?: string;
   estadoCivil?: EstadoCivil;
   senhaTemporaria?: boolean; // true quando o admin cria o usuário — força troca de senha no 1º login
+  favoritas?: string[];      // IDs das músicas favoritas
   ativo: boolean;
   createdAt: Date;
 }
@@ -114,12 +115,31 @@ export interface Escala {
   equipeId?: string;     // equipe que irá ministrar
   equipeName?: string;
   membros: EscalaMembro[];
+  confirmacoes?: Record<string, boolean>; // uid → confirmou? (cada membro grava só a sua)
   observacoes?: string;
-  setlist?: string[];    // IDs das músicas
+  setlist?: string[];    // IDs das músicas do repertório (legado e estatísticas)
+  setlistItens?: SetlistItem[]; // setlist ordenado (repertório + avulsas)
   paletaCores?: string[]; // hex das cores de roupa combinadas
   igrejaId?: string;
   createdBy: string;
   createdAt: Date;
+}
+
+/** Item do setlist: música do repertório (musicaId) ou avulsa (só título). */
+export interface SetlistItem {
+  id: string;            // id único do item no setlist
+  musicaId?: string;     // presente quando vem do repertório
+  titulo: string;
+  artista?: string;
+  tom?: string;          // tom usado neste culto (sobrepõe o da música)
+  link?: string;         // link de referência para músicas avulsas
+  observacao?: string;
+}
+
+/** Itens do setlist da escala, convertendo o formato antigo (lista de IDs). */
+export function itensDoSetlist(escala: Pick<Escala, "setlist" | "setlistItens">): SetlistItem[] {
+  if (escala.setlistItens?.length) return escala.setlistItens;
+  return (escala.setlist ?? []).map(id => ({ id, musicaId: id, titulo: "" }));
 }
 
 // ── REPERTÓRIO ────────────────────────────────────────────────────────────────
@@ -135,15 +155,27 @@ export interface MusicaVoto {
   votadoEm: Date;
 }
 
+export interface LinkExterno {
+  titulo: string;
+  url: string;
+}
+
 export interface Musica {
   id: string;
   titulo: string;
   artista: string;
-  tom: TomMusical;
+  tom: TomMusical;            // tom usado pela igreja
+  tomOriginal?: TomMusical;   // tom da gravação original
   bpm?: number;
+  duracaoSeg?: number;        // duração em segundos
+  observacoes?: string;       // observações de arranjo
+  vsUrl?: string;             // VS / playback desta música
+  links?: LinkExterno[];      // arquivos externos (Drive: versões, arranjos próprios)
   letra?: string;
   cifraUrl?: string;
   youtubeUrl?: string;
+  spotifyUrl?: string;
+  deezerUrl?: string;
   tags?: string[];
   igrejaId?: string;
   ativo: boolean;
@@ -178,8 +210,8 @@ export interface Equipe {
   id: string;
   name: string;
   descricao?: string;
-  liderId: string;
-  liderName: string;
+  liderId?: string;    // opcional: a equipe pode estar sem líder
+  liderName?: string;
   membros: string[];   // array de UIDs dos músicos
   cifraUrl?: string;   // Google Docs com todas as cifras da equipe
   vsUrl?: string;      // OneDrive com os VS (playbacks/stems) da equipe
@@ -213,6 +245,7 @@ export interface PrestacaoPergunta {
   opcoes?: OpcaoPergunta[];
   obrigatoria: boolean;
   publicoAlvo?: PublicoAlvoPergunta; // undefined = "todos" (retrocompat)
+  igrejaId?: string;
   ordem: number;
   ativa: boolean;
   createdBy: string;
@@ -248,4 +281,37 @@ export interface RepertorioEquipe {
   musicaIds: string[]; // IDs de músicas aprovadas selecionadas
   updatedAt: Date;
   createdAt: Date;
+}
+
+// ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────────
+export interface ConfigRepertorio {
+  /** true = líderes podem cadastrar músicas já aprovadas (carga inicial do repertório) */
+  liberacaoDireta: boolean;
+}
+
+// ── PALETAS DE CORES (modelos salvos) ─────────────────────────────────────────
+export interface PaletaModelo {
+  id: string;
+  nome: string;
+  cores: string[];
+  igrejaId?: string;
+  createdBy: string;
+}
+
+// ── HELPERS DE DURAÇÃO ────────────────────────────────────────────────────────
+/** 270 → "4:30" */
+export function formatarDuracao(seg?: number): string {
+  if (!seg && seg !== 0) return "";
+  const m = Math.floor(seg / 60);
+  const s = Math.round(seg % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** "4:30" → 270 ; "4" → 240 ; inválido → undefined */
+export function lerDuracao(txt: string): number | undefined {
+  const t = txt.trim();
+  if (!t) return undefined;
+  const m = t.match(/^(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return undefined;
+  return Number(m[1]) * 60 + Number(m[2] ?? 0);
 }

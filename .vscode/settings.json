@@ -1,0 +1,7 @@
+{
+  // Esconde do Explorer pastas de ferramentas que não fazem parte do app
+  "files.exclude": {
+    "**/.claude": true,
+    "**/.next": true
+  }
+}

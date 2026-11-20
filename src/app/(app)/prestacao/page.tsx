@@ -40,7 +40,7 @@ export default function PrestacaoPage() {
     if (!deveResponder) { setLoading(false); return; }
     async function load() {
       const [perg, resp, hist] = await Promise.all([
-        getPrestacaoPerguntas(),
+        getPrestacaoPerguntas(user!.igrejaId),
         getPrestacaoResposta(user!.uid, mes),
         getMinhasRespostas(user!.uid),
       ]);

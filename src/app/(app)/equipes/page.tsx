@@ -6,7 +6,9 @@ import { getEquipes, createEquipe, updateEquipe, deleteEquipe, getAllUsers, upda
 import type { Equipe, AppUser } from "@/lib/types";
 import { primaryRoleLabel, INSTRUMENTO_LABELS } from "@/lib/types";
 import { toast } from "sonner";
-import { Users2, Plus, Pencil, Trash2, X, UserCheck, ChevronDown, FileText, ExternalLink, Headphones } from "lucide-react";
+import Link from "next/link";
+import { mensagemErro } from "@/lib/errors";
+import { Users2, Plus, Pencil, Trash2, X, UserCheck, ChevronDown, FileText, ExternalLink, Headphones, Link2, ArrowRight } from "lucide-react";
 import clsx from "clsx";
 
 type Form = Omit<Equipe, "id" | "createdAt" | "createdBy" | "liderName">;
@@ -43,10 +45,16 @@ export default function EquipesPage() {
 
   async function load() {
     setLoading(true);
-    const [eq, us] = await Promise.all([getEquipes(user?.igrejaId), getAllUsers(user?.igrejaId)]);
-    setEquipes(eq);
-    setUsers(us);
-    setLoading(false);
+    try {
+      const [eq, us] = await Promise.all([getEquipes(user?.igrejaId), getAllUsers(user?.igrejaId)]);
+      // Músicos veem só as equipes de que participam
+      setEquipes(canEdit ? eq : eq.filter(e => e.membros.includes(user!.uid) || e.liderId === user!.uid));
+      setUsers(us);
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao carregar as equipes"));
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { load(); }, []);
 
@@ -58,16 +66,15 @@ export default function EquipesPage() {
 
   function openEdit(e: Equipe) {
     setEditingEquipe(e);
-    setForm({ name: e.name, descricao: e.descricao, liderId: e.liderId, membros: e.membros, cifraUrl: e.cifraUrl ?? "", vsUrl: e.vsUrl ?? "", cor: e.cor, ativo: e.ativo });
+    setForm({ name: e.name, descricao: e.descricao, liderId: e.liderId ?? "", membros: e.membros, cifraUrl: e.cifraUrl ?? "", vsUrl: e.vsUrl ?? "", cor: e.cor, ativo: e.ativo });
     setShowModal(true);
   }
 
   async function handleSave() {
     if (!form.name) { toast.error("Nome da equipe é obrigatório"); return; }
-    if (!form.liderId) { toast.error("Selecione um líder"); return; }
     setSaving(true);
     try {
-      const lider = users.find(u => u.uid === form.liderId);
+      const lider = form.liderId ? users.find(u => u.uid === form.liderId) : undefined;
       const liderName = lider?.name ?? "";
       // Auto-promove o líder selecionado para lider_equipe se ainda não tiver esse papel
       // (apenas pastor/diretor têm permissão de atualizar outros usuários)
@@ -75,15 +82,19 @@ export default function EquipesPage() {
         await updateUser(lider.uid, { roles: [...lider.roles, "lider_equipe"] });
         toast.info(`${lider.name} recebeu o cargo Líder de Equipe automaticamente`);
       }
+      // Sem líder: grava liderId/liderName vazios (equipe pode ficar sem líder)
+      const dados = { ...form, liderId: form.liderId || "", liderName };
       if (editingEquipe) {
-        await updateEquipe(editingEquipe.id, { ...form, liderName });
+        await updateEquipe(editingEquipe.id, dados);
         toast.success("Equipe atualizada!");
       } else {
-        await createEquipe({ ...form, liderName, igrejaId: user?.igrejaId, createdBy: user!.uid });
-        toast.success("Equipe criada!");
+        const ref = await createEquipe({ ...dados, igrejaId: user?.igrejaId, createdBy: user!.uid });
+        await copiarLink(ref.id, "Equipe criada! Link de acesso copiado.");
       }
       setShowModal(false);
       await load();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao salvar a equipe"));
     } finally {
       setSaving(false);
     }
@@ -91,9 +102,23 @@ export default function EquipesPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir esta equipe?")) return;
-    await deleteEquipe(id);
-    toast.success("Equipe excluída");
-    await load();
+    try {
+      await deleteEquipe(id);
+      toast.success("Equipe excluída");
+      await load();
+    } catch (e) {
+      toast.error(mensagemErro(e, "Erro ao excluir a equipe"));
+    }
+  }
+
+  async function copiarLink(id: string, msg = "Link da equipe copiado!") {
+    const url = `${window.location.origin}/equipes/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(msg);
+    } catch {
+      toast.info(`Link da equipe: ${url}`);
+    }
   }
 
   function toggleMembro(uid: string) {
@@ -163,7 +188,7 @@ export default function EquipesPage() {
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                       <span className="text-sm text-gray-500 flex items-center gap-1">
-                        <UserCheck size={13} /> {eq.liderName}
+                        <UserCheck size={13} /> {eq.liderName || <span className="italic text-gray-400">Sem líder</span>}
                       </span>
                       <span className="text-sm text-gray-400">
                         {eq.membros.length} músico{eq.membros.length !== 1 ? "s" : ""}
@@ -184,6 +209,13 @@ export default function EquipesPage() {
 
                   {/* Ações */}
                   <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={e => { e.stopPropagation(); copiarLink(eq.id); }}
+                      title="Copiar link da equipe"
+                      className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors"
+                    >
+                      <Link2 size={15} />
+                    </button>
                     {canEdit && (
                       <>
                         <button
@@ -212,6 +244,12 @@ export default function EquipesPage() {
                   <div className="border-t border-gray-50 px-4 pb-4 pt-3 space-y-3">
                     {/* Links externos */}
                     <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/equipes/${eq.id}`}
+                        className="inline-flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-700 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+                      >
+                        Abrir página da equipe <ArrowRight size={13} />
+                      </Link>
                       {eq.cifraUrl && (
                         <a
                           href={eq.cifraUrl}
@@ -347,14 +385,14 @@ export default function EquipesPage() {
                 )}
               </div>
               <div>
-                <label className="label">Líder Responsável *</label>
-                <p className="text-xs text-gray-400 mb-1.5">O cargo <strong>Líder de Equipe</strong> será atribuído automaticamente ao salvar</p>
+                <label className="label">Líder Responsável (opcional)</label>
+                <p className="text-xs text-gray-400 mb-1.5">Pode ficar sem líder. Se escolher alguém, o cargo <strong>Líder de Equipe</strong> é atribuído automaticamente</p>
                 <select
                   value={form.liderId}
                   onChange={e => setForm(f => ({ ...f, liderId: e.target.value }))}
                   className="input"
                 >
-                  <option value="">Selecione um líder...</option>
+                  <option value="">Sem líder</option>
                   {todosUsuarios.map(l => (
                     <option key={l.uid} value={l.uid}>{l.name} ({primaryRoleLabel(l.roles)})</option>
                   ))}

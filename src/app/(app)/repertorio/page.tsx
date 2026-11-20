@@ -18,8 +18,9 @@ import { mensagemErro } from "@/lib/errors";
 import {
   Library, Plus, Search, X, Music2, Clock,
   CheckCircle2, XCircle, Star, BookMarked, ChevronDown, ChevronUp,
-  AlertCircle, Bookmark, BookmarkCheck, History, Timer, EyeOff, BarChart3, Unlock, Lock, FileDown,
+  AlertCircle, History, Timer, EyeOff, BarChart3, Unlock, Lock, FileDown, ListPlus, Check,
 } from "lucide-react";
+import { corVisivel } from "@/lib/cores";
 import clsx from "clsx";
 import MusicaCampos, { camposEditaveis, type MusicaForm } from "@/components/musica/MusicaCampos";
 import { diasSemTocar, textoUltimaVez, usoDasMusicas, type UsoMusica } from "@/lib/estatisticas";
@@ -325,16 +326,24 @@ function CardSubmissao({ musica, totalPastores }: { musica: Musica; totalPastore
 }
 
 // ── Card de música (lista) ─────────────────────────────────────────────────────
+function SeloEquipe({ e }: { e: Equipe }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/5 text-gray-600">
+      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: corVisivel(e.cor) }} />
+      {e.name}
+    </span>
+  );
+}
+
 function CardMusica({
-  m, uso, favorita, noRepertorio, podeMarcarRepertorio, onFavorita, onRepertorio, onAbrir,
+  m, uso, favorita, equipesDaMusica, onFavorita, onEquipes, onAbrir,
 }: {
   m: Musica;
   uso?: UsoMusica;
   favorita: boolean;
-  noRepertorio: boolean;
-  podeMarcarRepertorio: boolean;
+  equipesDaMusica: Equipe[];
   onFavorita: () => void;
-  onRepertorio: () => void;
+  onEquipes?: () => void;   // ausente quando o usuário não edita nenhuma equipe
   onAbrir: () => void;
 }) {
   const dias = diasSemTocar(uso);
@@ -361,19 +370,25 @@ function CardMusica({
             </span>
             {m.ativo === false && <span className="badge bg-gray-100 text-gray-500 text-[10px]"><EyeOff size={9} /> Retirada</span>}
           </div>
+          {equipesDaMusica.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2 ml-11">
+              {equipesDaMusica.slice(0, 3).map(e => <SeloEquipe key={e.id} e={e} />)}
+              {equipesDaMusica.length > 3 && <span className="text-[10px] text-gray-400 self-center">+{equipesDaMusica.length - 3}</span>}
+            </div>
+          )}
         </div>
-        <button onClick={onFavorita} title={favorita ? "Remover das favoritas" : "Favoritar"}
-          className={clsx("p-2 rounded-xl transition-colors shrink-0", favorita ? "text-amber-500" : "text-gray-300 hover:text-amber-400")}>
-          <Star size={17} fill={favorita ? "currentColor" : "none"} />
-        </button>
-        {podeMarcarRepertorio && (
-          <button onClick={onRepertorio}
-            title={noRepertorio ? "Remover do repertório da equipe" : "Adicionar ao repertório da equipe"}
-            className={clsx("p-2 rounded-xl transition-colors shrink-0",
-              noRepertorio ? "bg-primary-100 text-primary-600 hover:bg-primary-200" : "text-gray-300 hover:bg-gray-100 hover:text-primary-400")}>
-            {noRepertorio ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <button onClick={onFavorita} title={favorita ? "Remover das favoritas" : "Favoritar"}
+            className={clsx("p-2 rounded-xl transition-colors", favorita ? "text-amber-500" : "text-gray-300 hover:text-amber-400")}>
+            <Star size={17} fill={favorita ? "currentColor" : "none"} />
           </button>
-        )}
+          {onEquipes && (
+            <button onClick={onEquipes} title="Adicionar ao repertório das equipes"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors">
+              <ListPlus size={13} /> Equipe
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -405,8 +420,10 @@ export default function RepertorioPage() {
   // Repertório por equipe
   const [equipes,       setEquipes]       = useState<Equipe[]>([]);
   const [equipeId,      setEquipeId]      = useState<string>("");
-  const [repEquipe,     setRepEquipe]     = useState<string[]>([]);
-  const [savingRep,     setSavingRep]     = useState(false);
+  const [repertorios,   setRepertorios]   = useState<Record<string, string[]>>({}); // equipeId → músicas
+  const [musicaEquipes, setMusicaEquipes] = useState<Musica | null>(null);         // painel "+ Equipe"
+  const [adicionando,   setAdicionando]   = useState(false);                        // painel "Adicionar músicas"
+  const [buscaAdd,      setBuscaAdd]      = useState("");
 
   const [search,  setSearch]  = useState("");
   const [filtro,  setFiltro]  = useState<Filtro>({ tipo: "todas" });
@@ -417,7 +434,11 @@ export default function RepertorioPage() {
   const [saving,    setSaving]    = useState(false);
 
   const equipe = equipes.find(e => e.id === equipeId);
-  const podeEditarRepEquipe = !!equipe && (isPastor || isDiretor || equipe.liderId === user?.uid);
+  const podeEditarEquipe = (e?: Equipe) => !!e && (isPastor || isDiretor || e.liderId === user?.uid);
+  const podeEditarRepEquipe = podeEditarEquipe(equipe);
+  const equipesEditaveis = equipes.filter(e => podeEditarEquipe(e));
+  const repEquipe = repertorios[equipeId] ?? [];
+  const equipesDe = (musicaId: string) => equipes.filter(e => repertorios[e.id]?.includes(musicaId));
 
   async function load() {
     if (!user) return;
@@ -438,6 +459,8 @@ export default function RepertorioPage() {
       setEquipes(visiveis);
       const inicial = visiveis.find(e => e.liderId === user.uid) ?? visiveis[0];
       if (inicial && !equipeId) setEquipeId(inicial.id);
+      const reps = await Promise.all(visiveis.map(e => getRepertorioEquipe(e.id).then(ids => [e.id, ids] as const)));
+      setRepertorios(Object.fromEntries(reps));
       if (isPastor || isDiretor) setPendentes(await getMusicasPendentes());
       if (isLiderEquipe || isDiretor) setMinhas(await getMusicasByLider(user.uid));
     } catch (e) {
@@ -449,10 +472,6 @@ export default function RepertorioPage() {
 
   useEffect(() => { load(); }, [user]);
 
-  useEffect(() => {
-    if (!equipeId) { setRepEquipe([]); return; }
-    getRepertorioEquipe(equipeId).then(setRepEquipe).catch(e => toast.error(mensagemErro(e)));
-  }, [equipeId]);
 
   function openNew() { setForm({ ...EMPTY }); setShowModal(true); }
 
@@ -535,19 +554,17 @@ export default function RepertorioPage() {
     }
   }
 
-  async function toggleRepEquipe(musicaId: string) {
-    if (!equipe || !podeEditarRepEquipe) return;
-    const anterior = repEquipe;
-    const nova = repEquipe.includes(musicaId) ? repEquipe.filter(id => id !== musicaId) : [...repEquipe, musicaId];
-    setRepEquipe(nova);
-    setSavingRep(true);
+  /** Coloca/tira a música do repertório da equipe; salva na hora. */
+  async function alternarNaEquipe(eq: Equipe, musicaId: string) {
+    if (!podeEditarEquipe(eq)) return;
+    const anterior = repertorios[eq.id] ?? [];
+    const nova = anterior.includes(musicaId) ? anterior.filter(id => id !== musicaId) : [...anterior, musicaId];
+    setRepertorios(r => ({ ...r, [eq.id]: nova }));
     try {
-      await setRepertorioEquipe(equipe.id, equipe.name, equipe.igrejaId ?? user!.igrejaId!, nova);
+      await setRepertorioEquipe(eq.id, eq.name, eq.igrejaId ?? user!.igrejaId!, nova);
     } catch (e) {
-      setRepEquipe(anterior);
+      setRepertorios(r => ({ ...r, [eq.id]: anterior }));
       toast.error(mensagemErro(e, "Erro ao salvar o repertório da equipe"));
-    } finally {
-      setSavingRep(false);
     }
   }
 
@@ -601,10 +618,9 @@ export default function RepertorioPage() {
       m={m}
       uso={uso[m.id]}
       favorita={favoritas.includes(m.id)}
-      noRepertorio={repEquipe.includes(m.id)}
-      podeMarcarRepertorio={podeEditarRepEquipe && !savingRep}
+      equipesDaMusica={equipesDe(m.id)}
       onFavorita={() => toggleFavorita(m.id)}
-      onRepertorio={() => toggleRepEquipe(m.id)}
+      onEquipes={equipesEditaveis.length && m.ativo !== false ? () => setMusicaEquipes(m) : undefined}
       onAbrir={() => router.push(`/repertorio/${m.id}`)}
     />
   );
@@ -715,11 +731,6 @@ export default function RepertorioPage() {
                 </div>
               )}
 
-              {equipe && podeEditarRepEquipe && (
-                <p className="text-xs text-gray-400">
-                  Use <Bookmark size={11} className="inline" /> para montar o repertório da equipe <strong>{equipe.name}</strong>.
-                </p>
-              )}
 
               {listaGeral.length === 0 ? (
                 <div className="card p-12 text-center text-gray-400">
@@ -735,28 +746,39 @@ export default function RepertorioPage() {
           {/* ── Repertório da Equipe ────────────────────────────────────────── */}
           {tab === "equipe" && (
             <>
-              <div className="card p-4 bg-primary-50 border-primary-100 flex flex-col sm:flex-row sm:items-center gap-3">
-                <BookMarked size={20} className="text-primary-500 shrink-0" />
-                <div className="flex-1">
-                  {equipes.length > 1 ? (
-                    <select value={equipeId} onChange={e => setEquipeId(e.target.value)} className="input py-2 bg-white">
-                      {equipes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                  ) : (
-                    <p className="text-sm font-semibold text-primary-800">Repertório de {equipe?.name}</p>
-                  )}
-                  <p className="text-xs text-primary-600 mt-1">
-                    {repEquipe.length} música{repEquipe.length !== 1 ? "s" : ""}
-                    {podeEditarRepEquipe && <> · adicione pela Lista Geral com <Bookmark size={11} className="inline" /></>}
-                  </p>
+              {equipes.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                  {equipes.map(e => (
+                    <button key={e.id} onClick={() => setEquipeId(e.id)}
+                      className={clsx("px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap flex items-center gap-2 transition-colors",
+                        e.id === equipeId ? "bg-primary-500 text-white" : "bg-white/5 text-gray-600 hover:bg-white/10")}>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: corVisivel(e.cor) }} />
+                      {e.name}
+                      <span className={clsx("text-[11px]", e.id === equipeId ? "text-white/70" : "text-gray-400")}>{repertorios[e.id]?.length ?? 0}</span>
+                    </button>
+                  ))}
                 </div>
+              )}
+              <div className="card p-4 flex items-center gap-3">
+                <BookMarked size={20} className="text-primary-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">Repertório de {equipe?.name}</p>
+                  <p className="text-xs text-gray-500">{repEquipe.length} música{repEquipe.length !== 1 ? "s" : ""}</p>
+                </div>
+                {podeEditarRepEquipe && (
+                  <button onClick={() => { setBuscaAdd(""); setAdicionando(true); }} className="btn-primary text-sm py-2">
+                    <ListPlus size={15} /> Adicionar músicas
+                  </button>
+                )}
               </div>
               {listaEquipe.length === 0 ? (
                 <div className="card p-12 text-center text-gray-400">
                   <BookMarked size={40} className="mx-auto mb-3 opacity-40" />
                   <p>Nenhuma música no repertório desta equipe</p>
                   {podeEditarRepEquipe && (
-                    <button onClick={() => setTab("geral")} className="btn-secondary mt-4 text-sm">Ir para a Lista Geral</button>
+                    <button onClick={() => { setBuscaAdd(""); setAdicionando(true); }} className="btn-primary mt-4 text-sm">
+                      <ListPlus size={15} /> Adicionar músicas
+                    </button>
                   )}
                 </div>
               ) : (
@@ -814,6 +836,84 @@ export default function RepertorioPage() {
             )
           )}
         </>
+      )}
+
+      {/* Painel: em quais equipes esta música está */}
+      {musicaEquipes && (
+        <Sheet aberto onFechar={() => setMusicaEquipes(null)} className="sm:max-w-md">
+          <div className="p-6 space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-gray-400">Repertório das equipes</p>
+              <h2 className="font-bold text-gray-900 text-lg truncate">{musicaEquipes.titulo}</h2>
+              <p className="text-sm text-gray-500">Toque para colocar ou tirar. Salva na hora.</p>
+            </div>
+            <div className="space-y-2">
+              {equipesEditaveis.map(e => {
+                const dentro = repertorios[e.id]?.includes(musicaEquipes.id) ?? false;
+                return (
+                  <button key={e.id} onClick={() => alternarNaEquipe(e, musicaEquipes.id)}
+                    className={clsx("w-full flex items-center gap-3 p-3 rounded-2xl border transition-colors text-left",
+                      dentro ? "border-primary-400/40 bg-primary-50" : "border-white/10 hover:bg-white/5")}>
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: corVisivel(e.cor) }} />
+                    <span className="flex-1 font-medium text-gray-900">{e.name}</span>
+                    <span className="text-xs text-gray-400">{repertorios[e.id]?.length ?? 0} músicas</span>
+                    <span className={clsx("w-6 h-6 rounded-lg flex items-center justify-center border",
+                      dentro ? "bg-primary-500 border-primary-500 text-white" : "border-white/20 text-transparent")}>
+                      <Check size={14} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => setMusicaEquipes(null)} className="btn-secondary w-full">Concluir</button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* Painel: adicionar várias músicas à equipe */}
+      {adicionando && equipe && (
+        <Sheet aberto onFechar={() => setAdicionando(false)} className="sm:max-w-lg">
+          <div className="flex flex-col max-h-[85vh]">
+            <div className="p-6 pb-3 space-y-3">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-gray-400">Adicionar músicas</p>
+                <h2 className="font-bold text-gray-900 text-lg">{equipe.name}</h2>
+              </div>
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={buscaAdd} onChange={e => setBuscaAdd(e.target.value)} className="input pl-9" placeholder="Buscar música ou artista..." autoFocus />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 space-y-1.5">
+              {musicas
+                .filter(m => m.ativo !== false)
+                .filter(m => !buscaAdd.trim() || `${m.titulo} ${m.artista}`.toLowerCase().includes(buscaAdd.trim().toLowerCase()))
+                .map(m => {
+                  const dentro = repEquipe.includes(m.id);
+                  return (
+                    <button key={m.id} onClick={() => alternarNaEquipe(equipe, m.id)}
+                      className={clsx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors",
+                        dentro ? "bg-primary-50" : "hover:bg-white/5")}>
+                      <span className={clsx("w-5 h-5 rounded-md flex items-center justify-center border shrink-0",
+                        dentro ? "bg-primary-500 border-primary-500 text-white" : "border-white/20 text-transparent")}>
+                        <Check size={13} />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{m.titulo}</p>
+                        <p className="text-xs text-gray-400 truncate">{m.artista}</p>
+                      </div>
+                      <span className="text-xs text-gray-400 shrink-0">{m.tom}</span>
+                    </button>
+                  );
+                })}
+            </div>
+            <div className="p-6 pt-3 border-t border-white/5">
+              <button onClick={() => setAdicionando(false)} className="btn-primary w-full">
+                Concluir · {repEquipe.length} música{repEquipe.length !== 1 ? "s" : ""}
+              </button>
+            </div>
+          </div>
+        </Sheet>
       )}
 
       {/* Modal cadastro */}

@@ -50,10 +50,10 @@ export default function CifraVisual({
   return (
     <div className={clsx("font-mono leading-relaxed", className)} style={{ fontSize: tamanho }}>
       {linhas.map((l, i) => {
-        if (l.tipo === "vazia") return <div key={i} className="h-3" />;
+        if (l.tipo === "vazia") return <div key={i} className="h-[0.75em]" />;
         if (l.tipo === "secao") {
           return (
-            <div key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-2 first:mt-0">
+            <div key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-[0.5em] first:mt-0 break-inside-avoid-column">
               <span className={clsx("rounded-md px-1.5 py-0.5 font-sans font-bold text-[0.8em] tracking-wide", COR_SECAO[l.secao ?? "outro"])}>
                 {l.rotulo}
               </span>

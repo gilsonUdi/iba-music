@@ -120,9 +120,9 @@ export default function MusicaCampos({
         <p className="text-xs text-gray-400 mb-2">Áudios de versões ou arranjos próprios da igreja</p>
         <div className="space-y-2">
           {(form.links ?? []).map((l, i) => (
-            <div key={i} className="flex gap-2">
-              <input value={l.titulo} onChange={e => setLink(i, "titulo", e.target.value)} className="input w-1/3" placeholder="Ex: Versão acústica" />
-              <input value={l.url} onChange={e => setLink(i, "url", e.target.value)} className="input flex-1" placeholder="https://drive.google.com/..." />
+            <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 p-2 sm:p-0 rounded-xl bg-white/[0.03] sm:bg-transparent">
+              <input value={l.titulo} onChange={e => setLink(i, "titulo", e.target.value)} className="input w-full sm:w-1/3" placeholder="Ex: Versão acústica" />
+              <input value={l.url} onChange={e => setLink(i, "url", e.target.value)} className="input flex-1 min-w-0" placeholder="https://drive.google.com/..." />
               {l.url && (
                 <a href={l.url} target="_blank" rel="noopener" className="p-2.5 text-gray-400 hover:text-primary-500" title="Abrir">
                   <ExternalLink size={15} />

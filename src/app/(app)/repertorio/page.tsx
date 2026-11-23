@@ -628,14 +628,14 @@ export default function RepertorioPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Library size={24} className="text-primary-500" /> Repertório
           </h1>
           <p className="text-gray-500 mt-1">{musicas.filter(m => m.ativo !== false).length} músicas no repertório</p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 flex-wrap">
           {podeCadastrar && (
             <Link href="/repertorio/importar-cifras" className="btn-secondary flex items-center gap-2" title="Importar cifras do Google Docs">
               <FileDown size={16} /> <span className="hidden sm:inline">Importar cifras</span>

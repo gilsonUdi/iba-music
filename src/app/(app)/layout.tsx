@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   LayoutDashboard, Users, Calendar, Library,
-  Bell, ClipboardCheck, LogOut, Users2, Building2, LayoutGrid,
+  Bell, ClipboardCheck, LogOut, Users2, Building2, LayoutGrid, Guitar,
 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import Sheet from "@/components/ui/Sheet";
 const NAV_ITEMS = [
   { href: "/igrejas",     label: "Igrejas",             shortLabel: "Igrejas",    icon: Building2,       roles: ["super_admin"] },
   { href: "/dashboard",   label: "Início",              shortLabel: "Início",     icon: LayoutDashboard, roles: ["super_admin", "pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
+  { href: "/cifras",      label: "Cifras",              shortLabel: "Cifras",     icon: Guitar,          roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
   { href: "/escalas",     label: "Escalas",             shortLabel: "Escalas",    icon: Calendar,        roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
   { href: "/repertorio",  label: "Repertório",          shortLabel: "Músicas",    icon: Library,         roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
   { href: "/equipes",     label: "Equipes",             shortLabel: "Equipes",    icon: Users2,          roles: ["pastor", "diretor_musical", "lider_equipe", "lider_celula", "musico"] },
@@ -155,7 +156,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Página */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-32 md:pb-8 print:p-0 print:overflow-visible">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 pb-32 md:pb-8 print:p-0 print:overflow-visible">
           {children}
         </main>
 

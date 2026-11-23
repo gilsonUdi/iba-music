@@ -239,7 +239,7 @@ export default function MembrosPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Users size={24} className="text-primary-500" /> Membros
@@ -260,7 +260,7 @@ export default function MembrosPage() {
 
       {/* Filtros */}
       <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-0 basis-56">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
@@ -284,7 +284,56 @@ export default function MembrosPage() {
         ) : filtered.length === 0 ? (
           <div className="p-8 text-center text-gray-400">Nenhum membro encontrado</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Celular: cartões */}
+          <div className="sm:hidden divide-y divide-white/5">
+            {filtered.map(u => {
+              const lider = lideresCelula.find(l => l.uid === u.liderUid);
+              const nomeLider = u.liderCelulaNome || lider?.name;
+              return (
+                <div key={u.uid} className="p-4 flex gap-3">
+                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-primary-700 font-semibold text-sm">{u.name[0]}</span>
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 truncate">{u.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                        {u.telefone && <p className="text-xs text-gray-400 flex items-center gap-1"><Phone size={10} /> {u.telefone}</p>}
+                      </div>
+                      {canManage && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => openEdit(u)} className="p-2 text-gray-400 hover:text-primary-500 rounded-lg" aria-label={`Editar ${u.name}`}>
+                            <Pencil size={15} />
+                          </button>
+                          {isPastor && (
+                            <button onClick={() => toggleAtivo(u)} className="p-2 text-gray-400 rounded-lg" aria-label={u.ativo ? "Desativar" : "Ativar"}>
+                              {u.ativo ? <ToggleRight size={18} className="text-green-500" /> : <ToggleLeft size={18} />}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {!u.ativo && <span className="badge text-xs bg-gray-100 text-gray-400">Inativo</span>}
+                      {u.roles.map(r => <span key={r} className={`badge text-xs ${ROLE_COLORS[r]}`}>{ROLE_LABELS[r]}</span>)}
+                      {(u.instrumentos?.length ? u.instrumentos : u.instrumento ? [u.instrumento] : []).map(i => (
+                        <span key={i} className="badge text-xs bg-gray-100 text-gray-500">{INSTRUMENTO_LABELS[i]}</span>
+                      ))}
+                    </div>
+                    {nomeLider && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1">
+                        <UserCheck size={12} className="text-primary-500" /> {nomeLider}{u.celulaNome && ` · ${u.celulaNome}`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Tablet/desktop: tabela */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
@@ -384,6 +433,7 @@ export default function MembrosPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

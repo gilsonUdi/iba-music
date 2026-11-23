@@ -122,12 +122,12 @@ export default function PaletaPicker({
       )}
 
       {/* Cores padrão */}
-      <div className="grid grid-cols-10 gap-2">
+      <div className="flex flex-wrap gap-2.5">
         {CORES_ROUPAS.map(cor => {
           const sel = selected.some(c => c.toLowerCase() === cor.hex.toLowerCase());
           return (
             <button key={cor.hex} type="button" title={cor.label} onClick={() => toggle(cor.hex)}
-              className={clsx("w-7 h-7 rounded-full transition-all", cor.border && "ring-1 ring-gray-200",
+              className={clsx("w-8 h-8 rounded-full transition-all", cor.border && "ring-1 ring-gray-200",
                 sel ? "ring-2 ring-offset-2 ring-primary-500 scale-110" : "hover:scale-110")}
               style={{ backgroundColor: cor.hex }} />
           );

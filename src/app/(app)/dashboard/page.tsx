@@ -212,7 +212,7 @@ export default function DashboardPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60 mb-2 flex items-center gap-1">
                     <ListMusic size={12} /> Setlist
                   </p>
-                  <ol className="grid sm:grid-cols-2 gap-1.5 cascata">
+                  <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 cascata">
                     {itens.slice(0, 6).map((i, n) => (
                       <li key={i.id}>
                         <Link href={i.musicaId ? `/repertorio/${i.musicaId}` : "#"}
@@ -276,7 +276,7 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Próximos cultos */}
         <section className="card p-5">
           <div className="flex items-center justify-between mb-3">

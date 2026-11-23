@@ -44,7 +44,7 @@ export default function MusicaCampos({
 
   return (
     <div className="space-y-4">
-      <div className="grid sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="label">Título *</label>
           <input value={form.titulo ?? ""} onChange={e => set("titulo", e.target.value)} className="input" placeholder="Nome da música" />

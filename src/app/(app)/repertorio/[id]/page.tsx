@@ -252,7 +252,7 @@ export default function RepertorioDetalhePage() {
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 truncate">{musica.titulo}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 line-clamp-2 break-words">{musica.titulo}</h1>
           <p className="text-gray-500 text-sm">{musica.artista}</p>
         </div>
         {!editando && (

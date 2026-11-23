@@ -184,7 +184,7 @@ export default function EquipesPage() {
             return (
               <div key={eq.id} className="card overflow-hidden" style={eq.cor ? { borderLeft: `4px solid ${eq.cor}` } : {}}>
                 <div
-                  className="flex items-center gap-4 p-4 cursor-pointer"
+                  className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 cursor-pointer"
                   onClick={() => setExpanded(isExpanded ? null : eq.id)}
                 >
                   {/* Ícone */}
@@ -220,11 +220,11 @@ export default function EquipesPage() {
                   </div>
 
                   {/* Ações */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-0 sm:gap-1 shrink-0">
                     <button
                       onClick={e => { e.stopPropagation(); copiarConvite(eq); }}
                       title="Copiar link de convite (cadastro na equipe)"
-                      className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors"
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors"
                     >
                       <Link2 size={15} />
                     </button>
@@ -232,13 +232,13 @@ export default function EquipesPage() {
                       <>
                         <button
                           onClick={e => { e.stopPropagation(); openEdit(eq); }}
-                          className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors"
+                          className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors"
                         >
                           <Pencil size={15} />
                         </button>
                         <button
                           onClick={e => { e.stopPropagation(); handleDelete(eq.id); }}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                          className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                         >
                           <Trash2 size={15} />
                         </button>

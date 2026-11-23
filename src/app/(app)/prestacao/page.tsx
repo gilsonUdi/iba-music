@@ -100,7 +100,7 @@ export default function PrestacaoPage() {
           </h1>
           <p className="text-gray-500 mt-1">Gerencie o formulário mensal do ministério</p>
         </div>
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <Link href="/prestacao/perguntas" className="card p-6 hover:shadow-md transition-shadow flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center">
               <ClipboardCheck size={22} className="text-indigo-600" />

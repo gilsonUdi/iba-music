@@ -194,7 +194,7 @@ export default function EquipePage() {
         {membros.length === 0 ? (
           <p className="card p-4 text-sm text-gray-400">Nenhum músico nesta equipe ainda.</p>
         ) : (
-          <div className="grid sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {membros.map(m => (
               <div key={m.uid} className="card p-3 flex items-center gap-3">
                 <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
@@ -222,7 +222,7 @@ export default function EquipePage() {
             Nenhuma música no repertório da equipe. Monte pelo menu Repertório → Lista Geral.
           </p>
         ) : (
-          <div className="grid sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {repertorio.map(m => (
               <Link key={m.id} href={`/repertorio/${m.id}`} className="card p-3 flex items-center gap-3 hover:shadow-md transition-shadow">
                 <span className="badge bg-primary-50 text-primary-600 font-bold">{m.tom}</span>

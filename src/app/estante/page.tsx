@@ -9,7 +9,7 @@ import {
 import clsx from "clsx";
 import { useAuth } from "@/hooks/useAuth";
 import { getCifra, getCifrasDaEquipe, getEscala, getMusica, getMusicas } from "@/lib/firestore";
-import { semitonsEntre, transporTom } from "@/lib/cifra";
+import { semelhancaTitulo, semitonsEntre, transporTom } from "@/lib/cifra";
 import { itensDoSetlist, type Cifra, type Musica } from "@/lib/types";
 import CifraVisual from "@/components/cifra/CifraVisual";
 import { Esqueleto } from "@/components/ui/Esqueleto";
@@ -89,7 +89,14 @@ export default function EstantePage() {
           ]);
           const lista: Folha[] = itensDoSetlist(escala).map(i => {
             const m: Musica | undefined = i.musicaId ? musicas.find(x => x.id === i.musicaId) : undefined;
-            const cifra = i.musicaId ? cifras.find(c => c.musicaId === i.musicaId) : undefined;
+            // Cifra da música do setlist; se não houver (cadastro duplicado ou música avulsa),
+            // usa a cifra da equipe com o mesmo título
+            const tituloItem = i.titulo || m?.titulo || "";
+            const cifra = (i.musicaId ? cifras.find(c => c.musicaId === i.musicaId) : undefined)
+              ?? cifras.find(c => {
+                const mc = musicas.find(x => x.id === c.musicaId);
+                return !!mc && !!tituloItem && semelhancaTitulo(mc.titulo, tituloItem) >= 0.92;
+              });
             return {
               titulo: i.titulo || m?.titulo || "(música)",
               artista: i.artista || m?.artista,
@@ -178,7 +185,9 @@ export default function EstantePage() {
     const altura = area.clientHeight - parseFloat(estilo.paddingTop) - parseFloat(estilo.paddingBottom) - 36;
     const alvo = el.firstElementChild as HTMLElement | null;
     if (!alvo || altura <= 0) return;
-    let min = 11, max = 48, melhor = 11;
+    // nunca abaixo de 16px: ilegível no palco; se não couber, a música rola
+    const MINIMO = 16;
+    let min = MINIMO, max = 48, melhor = MINIMO;
     for (let i = 0; i < 9; i++) {
       const meio = (min + max) / 2;
       alvo.style.fontSize = `${meio}px`;
@@ -327,7 +336,8 @@ export default function EstantePage() {
 
 
         {dicaPalco && (
-          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black/80 text-sm text-gray-800 animate-fade-in pointer-events-none">
+          <div className="fixed left-1/2 -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black/85 border border-white/10 text-sm text-gray-800 animate-fade-in pointer-events-none whitespace-nowrap"
+            style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
             Toque na cifra para mostrar os controles
           </div>
         )}
@@ -344,21 +354,29 @@ export default function EstantePage() {
         </div>
       )}
 
-      {/* Próxima + controles */}
+      {/* Controles: linha 1 = navegação entre músicas; linha 2 = ferramentas */}
       {!palco && (
         <footer className="shrink-0 border-t border-white/10 bg-black/50 backdrop-blur"
           style={{ paddingBottom: "max(0.375rem, env(safe-area-inset-bottom))" }}>
-          {proxima && (
-            <button onClick={() => ir(1)} className="w-full text-left px-4 pt-2 text-xs text-gray-400 truncate">
-              Próxima: <span className="text-gray-700 font-semibold">{proxima.titulo}</span>
-            </button>
+          {total > 1 && (
+            <div className="flex items-center gap-1 px-1.5 pt-1.5">
+              <button onClick={() => ir(-1)} disabled={atual === 0} className="p-3 rounded-xl active:bg-white/10 disabled:opacity-25 shrink-0" aria-label="Música anterior">
+                <ChevronLeft size={26} />
+              </button>
+              <button onClick={() => ir(1)} disabled={!proxima} className="flex-1 min-w-0 text-center px-2 py-1 rounded-xl active:bg-white/5 disabled:opacity-60">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400">{proxima ? "Próxima" : "Última música"}</p>
+                <p className="text-sm font-semibold text-gray-800 truncate">{proxima?.titulo ?? folha?.titulo}</p>
+              </button>
+              <button onClick={() => ir(1)} disabled={!proxima} className="p-3 rounded-xl active:bg-white/10 disabled:opacity-25 shrink-0" aria-label="Próxima música">
+                <ChevronRight size={26} />
+              </button>
+            </div>
           )}
-          <div className="flex items-center gap-1 justify-between px-1.5 py-1.5">
-            <button onClick={() => ir(-1)} disabled={atual === 0} className="p-3 rounded-xl active:bg-white/10 disabled:opacity-25" aria-label="Música anterior"><ChevronLeft size={26} /></button>
 
+          <div className="flex items-center justify-between gap-1.5 px-2 py-1.5">
             <div className="flex items-center bg-white/5 rounded-xl">
               <button onClick={() => mudarTom(-1)} className={btn} aria-label="Descer meio tom"><Minus size={18} /></button>
-              <span className="min-w-[2.6rem] text-center text-sm font-bold">{tomExibido ?? (st ? `${st > 0 ? "+" : ""}${st}` : "Tom")}</span>
+              <span className="min-w-[2.4rem] text-center text-sm font-bold">{tomExibido ?? (st ? `${st > 0 ? "+" : ""}${st}` : "Tom")}</span>
               <button onClick={() => mudarTom(1)} className={btn} aria-label="Subir meio tom"><Plus size={18} /></button>
               {st !== (folha?.semitonsIniciais ?? 0) && (
                 <button onClick={() => setSemitons(s => s.map((v, i) => (i === atual ? (folha?.semitonsIniciais ?? 0) : v)))} className={clsx(btn, "text-gray-400")} aria-label="Voltar ao tom"><RotateCcw size={15} /></button>
@@ -377,17 +395,19 @@ export default function EstantePage() {
               <button onClick={() => mudarPref({ colunas: !pref.colunas })} className={clsx(btn, "hidden min-[600px]:inline-flex", pref.colunas && "bg-primary-500 text-white hover:bg-primary-500")} aria-label="Duas colunas">
                 <Columns2 size={18} />
               </button>
-              <button onClick={() => setRolando(r => !r)} disabled={pref.ajustar} className={clsx(btn, rolando && "bg-primary-500 text-white hover:bg-primary-500", "disabled:opacity-30")} aria-label={rolando ? "Pausar rolagem" : "Rolar automaticamente"}>
+              <button onClick={() => setRolando(r => !r)} className={clsx(btn, rolando && "bg-primary-500 text-white hover:bg-primary-500", "disabled:opacity-30")} aria-label={rolando ? "Pausar rolagem" : "Rolar automaticamente"}>
                 {rolando ? <Pause size={18} /> : <Play size={18} />}
               </button>
-              {rolando && (
-                <input type="range" min={8} max={80} value={pref.velocidade} onChange={e => mudarPref({ velocidade: Number(e.target.value) })}
-                  className="w-16 mr-2 accent-violet-500" aria-label="Velocidade da rolagem" />
-              )}
             </div>
-
-            <button onClick={() => ir(1)} disabled={atual >= total - 1} className="p-3 rounded-xl active:bg-white/10 disabled:opacity-25" aria-label="Próxima música"><ChevronRight size={26} /></button>
           </div>
+
+          {rolando && (
+            <div className="flex items-center gap-3 px-4 pb-1.5 text-xs text-gray-400">
+              Velocidade
+              <input type="range" min={8} max={80} value={pref.velocidade} onChange={e => mudarPref({ velocidade: Number(e.target.value) })}
+                className="flex-1 accent-violet-500" aria-label="Velocidade da rolagem" />
+            </div>
+          )}
         </footer>
       )}
     </div>

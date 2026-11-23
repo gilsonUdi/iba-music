@@ -500,7 +500,7 @@ export default function EscalasPage() {
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
                         <Music2 size={13} /> Músicos
                       </p>
-                      <div className="grid gap-2">
+                      <div className="grid grid-cols-1 gap-2">
                         {escala.membros.map(m => (
                           <div key={m.uid} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-100">
                             <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center shrink-0">

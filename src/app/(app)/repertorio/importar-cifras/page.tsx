@@ -199,7 +199,7 @@ export default function ImportarCifrasPage() {
         <div className="card p-8 text-center text-gray-500">Você não lidera nenhuma equipe. Peça ao diretor ou ao pastor para importar.</div>
       ) : (
         <section className="card p-5 space-y-4">
-          <div className="grid sm:grid-cols-[1fr_2fr] gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-3">
             <div>
               <label className="label">Equipe</label>
               <select value={equipeId} onChange={e => trocarEquipe(e.target.value)} className="input">

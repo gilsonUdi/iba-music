@@ -8,7 +8,7 @@ export function Esqueleto({ className }: { className?: string }) {
 /** Lista de cards carregando (substitui o "Carregando..."). */
 export function EsqueletoLista({ itens = 4, grade = false }: { itens?: number; grade?: boolean }) {
   return (
-    <div className={clsx("gap-3", grade ? "grid sm:grid-cols-2" : "flex flex-col")} aria-busy="true" aria-label="Carregando">
+    <div className={clsx("gap-3", grade ? "grid grid-cols-1 sm:grid-cols-2" : "flex flex-col")} aria-busy="true" aria-label="Carregando">
       {Array.from({ length: itens }).map((_, i) => (
         <div key={i} className="card p-4 flex items-center gap-3" style={{ animationDelay: `${i * 60}ms` }}>
           <Esqueleto className="w-11 h-11 rounded-2xl shrink-0" />

@@ -109,7 +109,7 @@ export default function ImprimirEscalaPage() {
           </section>
         )}
 
-        <section className="grid sm:grid-cols-2 print:grid-cols-2 gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-6">
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-2">Escalados</h2>
             <ul className="text-sm space-y-1">

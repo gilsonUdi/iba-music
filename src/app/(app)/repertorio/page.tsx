@@ -738,7 +738,7 @@ export default function RepertorioPage() {
                   <p>{search || filtro.tipo !== "todas" ? "Nenhuma música neste filtro" : "Nenhuma música aprovada ainda"}</p>
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">{listaGeral.map(renderCard)}</div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{listaGeral.map(renderCard)}</div>
               )}
             </>
           )}
@@ -782,7 +782,7 @@ export default function RepertorioPage() {
                   )}
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">{listaEquipe.map(renderCard)}</div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{listaEquipe.map(renderCard)}</div>
               )}
             </>
           )}

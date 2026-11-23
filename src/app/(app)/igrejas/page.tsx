@@ -314,7 +314,7 @@ export default function IgrejasPage() {
                         </button>
                       </p>
                     ) : (
-                      <div className="grid gap-2">
+                      <div className="grid grid-cols-1 gap-2">
                         {membrosIgreja.map(m => (
                           <div key={m.uid} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 border border-gray-100">
                             <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
